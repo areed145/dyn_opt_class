@@ -12,6 +12,10 @@ from tclab import TCLab
 # Connect to Arduino
 a = TCLab()
 
+# Turn LED on
+print('LED On')
+a.LED(100)
+
 # Final time
 tf = 10 # min
 
@@ -276,7 +280,11 @@ try:
     a.Q1(0)
     a.Q2(0)
     # Save figure
-    plt.savefig('tclab_mhe.png')
+    plt.savefig('tclab_mhe_E.png')
+
+    # Turn LED off
+    print('LED Off')
+    a.LED(0)
     
 # Allow user to end loop with Ctrl-C           
 except KeyboardInterrupt:
@@ -285,7 +293,11 @@ except KeyboardInterrupt:
     a.Q2(0)
     print('Shutting down')
     a.close()
-    plt.savefig('tclab_mhe.png')
+    plt.savefig('tclab_mhe_E.png')
+
+    # Turn LED off
+    print('LED Off')
+    a.LED(0)
     
 # Make sure serial connection still closes when there's an error
 except:           
@@ -294,5 +306,10 @@ except:
     a.Q2(0)
     print('Error: Shutting down')
     a.close()
-    plt.savefig('tclab_mhe.png')
+    plt.savefig('tclab_mhe_E.png')
+
+    # Turn LED off
+    print('LED Off')
+    a.LED(0)
+
     raise

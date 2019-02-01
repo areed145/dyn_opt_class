@@ -12,6 +12,10 @@ from tclab import TCLab
 # Connect to Arduino
 a = TCLab()
 
+# Turn LED on
+print('LED On')
+a.LED(100)
+
 # Final time
 tf = 10 # min
 
@@ -65,23 +69,17 @@ m.time = np.linspace(0,60,21)
 
 # Parameters to Estimate
 U = m.FV(value=10,name='u')
-U.STATUS = 0  # don't estimate initially
-U.FSTATUS = 0 # no measurements
-U.DMAX = 1
+U.STATUS = 1  # don't estimate initially
 U.LOWER = 5
 U.UPPER = 15
 
 alpha1 = m.FV(value=0.01,name='a1')   # W / % heater
-alpha1.STATUS = 0  # don't estimate initially
-alpha1.FSTATUS = 0 # no measurements
-alpha1.DMAX = 0.001
+alpha1.STATUS = 1  # don't estimate initially
 alpha1.LOWER = 0.003
 alpha1.UPPER = 0.03
 
 alpha2 = m.FV(value=0.0075,name='a2') # W / % heater
-alpha2.STATUS = 0  # don't estimate initially
-alpha2.FSTATUS = 0 # no measurements
-alpha2.DMAX = 0.001
+alpha2.STATUS = 1  # don't estimate initially
 alpha2.LOWER = 0.002
 alpha2.UPPER = 0.02
 
@@ -93,10 +91,6 @@ Q1.FSTATUS = 1 # receive measurement
 Q2 = m.MV(value=0,name='q2')
 Q2.STATUS = 0  # don't estimate
 Q2.FSTATUS = 1 # receive measurement
-
-# State variables
-TH1 = m.SV(value=T1m[0],name='th1')
-TH2 = m.SV(value=T2m[0],name='th2')
 
 # Measurements for model alignment
 TC1 = m.CV(value=T1m[0],name='tc1')
@@ -122,20 +116,20 @@ eps = m.Param(value=0.9)            # Emissivity
 sigma = m.Const(5.67e-8)            # Stefan-Boltzmann
 
 # Heater temperatures
-T1 = m.Intermediate(TH1+273.15)
-T2 = m.Intermediate(TH2+273.15)
+T1 = m.Intermediate(TC1+273.15)
+T2 = m.Intermediate(TC2+273.15)
 
 # Heat transfer between two heaters
 Q_C12 = m.Intermediate(U*As*(T2-T1)) # Convective
 Q_R12 = m.Intermediate(eps*sigma*As*(T2**4-T1**4)) # Radiative
 
 # Semi-fundamental correlations (energy balances)
-m.Equation(TH1.dt() == (1.0/(mass*Cp))*(U*A*(Ta-T1) \
+m.Equation(TC1.dt() == (1.0/(mass*Cp))*(U*A*(Ta-T1) \
                     + eps * sigma * A * (Ta**4 - T1**4) \
                     + Q_C12 + Q_R12 \
                     + alpha1*Q1))
 
-m.Equation(TH2.dt() == (1.0/(mass*Cp))*(U*A*(Ta-T2) \
+m.Equation(TC2.dt() == (1.0/(mass*Cp))*(U*A*(Ta-T2) \
                     + eps * sigma * A * (Ta**4 - T2**4) \
                     - Q_C12 - Q_R12 \
                     + alpha2*Q2))
@@ -143,9 +137,8 @@ m.Equation(TH2.dt() == (1.0/(mass*Cp))*(U*A*(Ta-T2) \
 # Global Options
 m.options.IMODE   = 5 # MHE
 m.options.EV_TYPE = 2 # Objective type
-m.options.NODES   = 3 # Collocation nodes
+m.options.NODES   = 2 # Collocation nodes
 m.options.SOLVER  = 3 # IPOPT
-m.options.COLDSTART = 1 # COLDSTART on first cycle
 
 ##################################################################
 
@@ -260,7 +253,11 @@ try:
     a.Q1(0)
     a.Q2(0)
     # Save figure
-    plt.savefig('tclab_mhe.png')
+    plt.savefig('tclab_mhe_C.png')
+
+    # Turn LED off
+    print('LED Off')
+    a.LED(0)
     
 # Allow user to end loop with Ctrl-C           
 except KeyboardInterrupt:
@@ -269,7 +266,11 @@ except KeyboardInterrupt:
     a.Q2(0)
     print('Shutting down')
     a.close()
-    plt.savefig('tclab_mhe.png')
+    plt.savefig('tclab_mhe_C.png')
+
+    # Turn LED off
+    print('LED Off')
+    a.LED(0)
     
 # Make sure serial connection still closes when there's an error
 except:           
@@ -278,5 +279,10 @@ except:
     a.Q2(0)
     print('Error: Shutting down')
     a.close()
-    plt.savefig('tclab_mhe.png')
+    plt.savefig('tclab_mhe_C.png')
+
+    # Turn LED off
+    print('LED Off')
+    a.LED(0)
+
     raise
