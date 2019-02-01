@@ -2,11 +2,7 @@ import numpy as np
 import time
 import matplotlib.pyplot as plt
 import random
-# get gekko package with:
-#   pip install gekko
 from gekko import GEKKO
-# get tclab package with:
-#   pip install tclab
 from tclab import TCLab
 
 # Connect to Arduino
@@ -56,8 +52,8 @@ amhe2 = 0.0075 * np.ones(n)
 solve = 0 * np.ones(n)
 err1 = 0 * np.ones(n)
 err2 = 0 * np.ones(n)
-e1 = 0
-e2 = 0
+errcum1 = 0
+errcum2 = 0
 
 #########################################################
 # Initialize Model as Estimator
@@ -235,10 +231,10 @@ try:
         a.Q2(Q2s[i])
 
         # determine cumulative error
-        e1 += abs(T1m[i] - Tmhe1[i])
-        e2 += abs(T2m[i] - Tmhe2[i])
-        err1[i] = e1
-        err2[i] = e2
+        errcum1 += abs(T1m[i] - Tmhe1[i])
+        errcum2 += abs(T2m[i] - Tmhe2[i])
+        err1[i] = errcum1
+        err2[i] = errcum2
 
         # Plot
         plt.clf()
