@@ -46,6 +46,7 @@ T2m = a.T2 * np.ones(n)
 Tmhe1 = T1m[0] * np.ones(n)
 Tmhe2 = T2m[0] * np.ones(n)
 Umhe = 10.0 * np.ones(n)
+taumhe = 5.0 * np.ones(n)
 amhe1 = 0.01 * np.ones(n)
 amhe2 = 0.0075 * np.ones(n)
 solve = 0 * np.ones(n)
@@ -70,6 +71,13 @@ U.FSTATUS = 0 # no measurements
 U.DMAX = 1
 U.LOWER = 5
 U.UPPER = 15
+
+tau = m.FV(value=5,name='tau')
+tau.STATUS = 0  # don't estimate initially
+tau.FSTATUS = 0 # no measurements
+tau.DMAX = 1
+tau.LOWER = 15
+tau.UPPER = 25
 
 alpha1 = m.FV(value=0.01,name='a1')   # W / % heater
 alpha1.STATUS = 0  # don't estimate initially
@@ -140,6 +148,10 @@ m.Equation(TH2.dt() == (1.0/(mass*Cp))*(U*A*(Ta-T2) \
                     - Q_C12 - Q_R12 \
                     + alpha2*Q2))
 
+# Empirical correlations (lag equations to emulate conduction)
+m.Equation(tau * TC1.dt() == -TC1 + TH1)
+m.Equation(tau * TC2.dt() == -TC2 + TH2)
+
 # Global Options
 m.options.IMODE   = 5 # MHE
 m.options.EV_TYPE = 2 # Objective type
@@ -188,6 +200,7 @@ try:
         # Start estimating U after 10 cycles (20 sec)
         if i==10:
             U.STATUS = 1
+            tau.STATUS = 1
             alpha1.STATUS = 1
             alpha2.STATUS = 1
         
@@ -199,6 +212,7 @@ try:
             Tmhe1[i] = TC1.MODEL
             Tmhe2[i] = TC2.MODEL
             Umhe[i]  = U.NEWVAL
+            taumhe[i] = tau.NEWVAL
             amhe1[i] = alpha1.NEWVAL
             amhe2[i] = alpha2.NEWVAL
             solve[i] = 1
@@ -207,6 +221,7 @@ try:
             Tmhe1[i] = Tmhe1[i-1]
             Tmhe2[i] = Tmhe1[i-1]
             Umhe[i]  = Umhe[i-1]
+            taumhe[i] = taumhe[i-1]
             amhe1[i] = amhe1[i-1]
             amhe2[i] = amhe2[i-1]
             solve[i] = 0
@@ -233,7 +248,8 @@ try:
         plt.legend(loc=2)
         ax=plt.subplot(4,1,2)
         ax.grid()
-        plt.plot(tm[0:i],Umhe[0:i],'k:',label='Heat Transfer Coeff')       
+        plt.plot(tm[0:i],Umhe[0:i],'k:',label='Heat Transfer Coeff')
+        plt.plot(tm[0:i],taumhe[0:i],'g-',label='Time Constant')        
         plt.plot(tm[0:i],amhe1[0:i]*1000,'r--',label=r'$\alpha_1$x1000')
         plt.plot(tm[0:i],amhe2[0:i]*1000,'b--',label=r'$\alpha_2$x1000')
         plt.ylabel('Parameters')
