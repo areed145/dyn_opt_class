@@ -59,10 +59,10 @@ def drillstring(pumpQ, backQ, depth, dTime):
     Qback = d.FV(value = backQ)  # volume flow rate through the back pressure pump
     
     Vd_init = math.pi*r_di*r_di * depth
-    Vd      = d.FV(value = Vd_init)  # volume of the drill string (m3)
+    Vd      = d.Var(value = Vd_init)  # volume of the drill string (m3)
     
     Va_init = math.pi*(r_ci*r_ci - r_do*r_do) * depth    
-    Va      = d.FV(value = Va_init)  # volume of the annulus (m3)
+    Va      = d.Var(value = Va_init)  # volume of the annulus (m3)
     
     Pp    = d.Var(value = 40.0e+5)  # pump pressure inside the drill string
     Pc    = d.Var(value = 10.0e+5)  # choke pressure inside the annulus
@@ -71,6 +71,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
     Qchoke = d.Intermediate( Qbit + Qback )
 
     MD = d.Var(value = depth)    # measured depth
+    
 
     Pbit  = d.Var(value = 0.0)      # Pressure at the drill bit / BHP
     #dPa   = m.Var(value = 0.0)      # differential pressure across the annulus (?)
@@ -85,11 +86,11 @@ def drillstring(pumpQ, backQ, depth, dTime):
     d.Equation ( Va == math.pi*(r_ci*r_ci - r_do*r_do) * MD )
     
     # Equation 5.1
-    d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - Vd.dt()) )
+    #d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - Vd.dt()) )
     #d.Equation( Vd*Pp.dt() == (betaD) * (Qpump - Qbit) )
     
     # Equation 5.2
-    d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Va.dt()) )
+    #d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Va.dt()) )
     #d.Equation( Va*Pc.dt() == (betaA) * (Qres + Qbit + Qback - Qchoke) )
     
     # Equation 5.3
@@ -101,7 +102,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
     d.Equation( Pbit == Pc + rhoA*g*TVD + Fa*(Qbit**2) )
     
     # Drilling rate from reservior simulation
-    d.Equation( TVD.dt() == ROP )
+#    d.Equation( TVD.dt() == ROP )
     
     
     ###########################################################################
@@ -116,36 +117,36 @@ def drillstring(pumpQ, backQ, depth, dTime):
     #drillstring, across the bit and finally up the annulus
     
     
-    Qd = [d.Var(value=0) for i in range(1,N+1)]     #Flow inside the drillstring, m^3/s
-    Qa = [d.Var(value=0) for i in range(1,N+1)]     #Flow inside the annulus, m^3/s
-    Pd = [d.Var(value=0) for i in range(1,N+1)]     #Pressure inside drillstring, Pa
-    Pa = [d.Var(value=0) for i in range(1,N+1)]     #Pressure inside annulus, Pa
+    Qd = [d.Var(value=0) for i in range(N)]     #Flow inside the drillstring, m^3/s
+    Qa = [d.Var(value=0) for i in range(N)]     #Flow inside the annulus, m^3/s
+    Pd = [d.Var(value=0) for i in range(N)]     #Pressure inside drillstring, Pa
+    Pa = [d.Var(value=0) for i in range(N)]     #Pressure inside annulus, Pa
     
     #Pressure inside the drillstring
-    d.Equation(Pd[1].dt() == (betaD/Vd)*(Qpump - Qd[1]))    
-    for i in range(2,N):
+    d.Equation(Pd[0].dt() == (betaD/Vd)*(Qpump - Qd[0]))    
+    for i in range(1,N-1):
         d.Equation(Pd[i].dt() == (betaD/Vd)*(Qd[i-1] - Qd[i]))    
-    d.Equation(Pd[N].dt() == (betaD/Vd)*(Qd[N-1] - Qbit))
+    d.Equation(Pd[N-1].dt() == (betaD/Vd)*(Qd[N-2] - Qbit))
     
     #Flow inside the drillstring    
-    for i in range(1,N):
+    for i in range(0,N-1):
         d.Equation(Qd[i].dt() == (1/mass) * (Pd[i] - Pd[i+1] - Fd*(Qd[i]**2) \
                                     + rhoD*g*TVD ))   
 
          
     #Flow across the drillbit
-    d.Equation(Qbit.dt() == (1/mass) * (Pd[N] - Pa[1] - Fb*(Qbit**2) \
+    d.Equation(Qbit.dt() == (1/mass) * (Pd[N-1] - Pa[0] - Fb*(Qbit**2) \
                         + 0.5*(rhoD - rhoA)*g*TVD) )  
     
     
     #Pressure inside the annulus
-    d.Equation(Pa[1].dt() == (betaA/Va)*(Qbit + Qres - Qloss - Qa[1]))
-    for i in range(2,N):
+    d.Equation(Pa[0].dt() == (betaA/Va)*(Qbit + Qres - Qloss - Qa[0]))
+    for i in range(1,N):
         d.Equation(Pa[i].dt() == (betaA/Va)*(Qa[i-1] - Qa[i]))
-    d.Equation(Pa[N].dt == (betaA/Va)*(Qa[N-1] - Qchoke + Qback))
+    d.Equation(Pa[N-1].dt == (betaA/Va)*(Qa[N-2] - Qchoke + Qback))
     
     #Flow inside the annulus
-    for i in range(1,N):
+    for i in range(0,N-1):
         d.Equation(Qa[i].dt() == (1/mass) * (Pa[i] - Pa[i+1] - Fa*(Qa[i]**2) \
                         - 0.5*rhoA*g*TVD) ) 
     
@@ -179,3 +180,5 @@ def drillstring(pumpQ, backQ, depth, dTime):
     return (Pp.VALUE[-1], Pc.VALUE[-1], \
             Qbit.VALUE[-1], Pbit.VALUE[-1], \
             Qres.VALUE[-1], MD.VALUE[-1] )
+    
+print(drillstring(86e+5, 10e+5,1900,10))
