@@ -35,6 +35,9 @@ def drillstring(pumpQ, backQ, depth, dTime):
     r_di = 2.0 * 0.0254    # drillstring inner radius (m) (4" diameter)
     r_do = 2.5 * 0.0254    # drillstring outer radius (m) (5" diameter)
     r_ci = 4.3125 * 0.0254 # annulus inner radius (m) (8 5/8" diameter)
+    A_d = math.pi*r_di**2  # drillstring inner area , m^2
+    A_a = math.pi*(r_ci**2 - r_do**2)  # annulus flow area , m^2
+    A_h = math.pi*r_ci**2  # borehole cross area, m^2
     
     Fa = d.Const(value = 2.0e+9)   # friction coefficient inside the annulus
     Fd = d.Const(value = 5.0e+9)   # friction coefficient inside the drill string
@@ -51,24 +54,24 @@ def drillstring(pumpQ, backQ, depth, dTime):
     rhoD  = d.FV(value = 1580.0)   # density of the fluid in the annulus
     #rhoM  = d.FV(value = 1580.0)   # density of the mud used
 
-    Qres  = d.FV(value = 0.0)      # volume flow rate from the reservoir
-    Qloss  = d.FV(value = 0.0)      # volume flow rate loss to the reservoir
+    Qres  = d.Param(value = 0.0)      # volume flow rate from the reservoir
+    Qloss  = d.Param(value = 0.0)      # volume flow rate loss to the reservoir
     
     # Define Variables
     Qpump = d.FV(value = pumpQ)  # volume flow rate through the pump
     Qback = d.FV(value = backQ)  # volume flow rate through the back pressure pump
     
-    Vd_init = math.pi*r_di*r_di * depth
+    Vd_init = A_d * depth
     Vd      = d.Var(value = Vd_init)  # volume of the drill string (m3)
     
-    Va_init = math.pi*(r_ci*r_ci - r_do*r_do) * depth    
+    Va_init = A_a * depth    
     Va      = d.Var(value = Va_init)  # volume of the annulus (m3)
     
     Pp    = d.Var(value = 40.0e+5)  # pump pressure inside the drill string
     Pc    = d.Var(value = 10.0e+5)  # choke pressure inside the annulus
     Qbit  = d.Var(value = pumpQ)   # volume flow rate through the drill bit
      # volume flow rate through the choke (Qpump+Qback)
-    Qchoke = d.Intermediate( Qbit + Qback )
+    Qchoke = d.Intermediate( Qbit + Qback + Qres - Qloss)
 
     MD = d.Var(value = depth)    # measured depth
     
@@ -82,15 +85,15 @@ def drillstring(pumpQ, backQ, depth, dTime):
     # Model equations
     
     # Drillstring and annulus volumes
-    d.Equation ( Vd == math.pi*r_di*r_di * MD )
-    d.Equation ( Va == math.pi*(r_ci*r_ci - r_do*r_do) * MD )
+    d.Equation ( Vd.dt() == A_d * ROP )
+    d.Equation ( Va.dt() == A_a * ROP )
     
     # Equation 5.1
-    #d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - Vd.dt()) )
+    d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - Vd.dt()) )
     #d.Equation( Vd*Pp.dt() == (betaD) * (Qpump - Qbit) )
     
     # Equation 5.2
-    #d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Va.dt()) )
+    d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Va.dt()) )
     #d.Equation( Va*Pc.dt() == (betaA) * (Qres + Qbit + Qback - Qchoke) )
     
     # Equation 5.3
@@ -102,7 +105,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
     d.Equation( Pbit == Pc + rhoA*g*TVD + Fa*(Qbit**2) )
     
     # Drilling rate from reservior simulation
-#    d.Equation( TVD.dt() == ROP )
+    d.Equation( MD.dt() == ROP )
     
     
     ###########################################################################
@@ -111,8 +114,8 @@ def drillstring(pumpQ, backQ, depth, dTime):
     
     #Need to complete this. But the flow of reading the model is to imagine
     #the drillstring and the annulus being divided into N sections
-    #Top of the well is the start for the drillstring element 1 -> botton is element N
-    #Bottom of the well is the start for the annulus element 1 -> wellhead is element N
+    #Top of the well is the start for the drillstring element 0 -> bottom is element N-1
+    #Bottom of the well is the start for the annulus element 0 -> wellhead is element N-1
     #The equations are in the sequential order of flow across each element inside the 
     #drillstring, across the bit and finally up the annulus
     
