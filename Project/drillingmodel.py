@@ -201,43 +201,64 @@ def drillstring(pumpQ, backQ, depth, dTime):
     
     
     
-        #%% Plot
+#        #%% Plot
+#    
+#    plt.figure(4)
+#    plt.subplot(4,1,1)
+#    plt.plot(d.time, np.array(Pbit.VALUE)/1e+5, 'r', label='BHP(Bar)')
+#    plt.plot(d.time, np.array(Pp.VALUE)/1e+5, 'b', label='Pump Pressure(Bar)')
+#    plt.legend(loc='best')
+#    plt.subplot(4,1,2)
+#    plt.plot(d.time, np.array(Pc.VALUE)/1e+5, 'g', label ='Choke Pressure(Bar)')
+#    plt.legend(loc='best')
+#    plt.subplot(4,1,3)
+#    plt.plot(d.time, np.array(Qbit.VALUE)*60000, 'k', label ='Qbit (l/min)')
+#    plt.plot(d.time, np.array(Qchoke.VALUE)*60000, 'r', label ='Qchoke (l/min)')
+#    plt.plot(d.time, np.array(Qpump.VALUE)*60000, 'm', label ='Qpump (l/min)')
+#    plt.plot(d.time, np.array(Qres.VALUE)*60000, 'b', label ='Qres (l/min)')    
+#    plt.legend(loc='best')
+#    plt.subplot(4,1,4)
+#    plt.plot(d.time, MD.VALUE, 'g', label ='MD(m)')
+#    plt.legend(loc='best')
+#    plt.show()
+#    
+    #%% Plot pressure profile
+    #pd = []
+    plt.figure()
+    for i in range(len(d.time)):
+        pd = []
+        pa = []
+        plt.clf()
+        for j in range(N):
+            pd.append(Pd[j].VALUE[i]*1e-5)
+            pa.append(Pa[j].VALUE[i]*1e-5)
+        plt.plot(pd, np.linspace(0,-MD.VALUE[-1],N), 'r', label='Pressure Drillstring(Bar)')
+        plt.plot(pa, np.linspace(0,-MD.VALUE[-1],N), 'b', label='Pressure Annulus(Bar)')
+        plt.legend(loc='best')
+        plt.draw()
+        plt.pause(0.5)
+        
     
-    plt.figure(4)
-    plt.subplot(4,1,1)
-    plt.plot(d.time, np.array(Pbit.VALUE)/1e+5, 'r', label='BHP(Bar)')
-    plt.plot(d.time, np.array(Pp.VALUE)/1e+5, 'b', label='Pump Pressure(Bar)')
-    plt.legend(loc='best')
-    plt.subplot(4,1,2)
-    plt.plot(d.time, np.array(Pc.VALUE)/1e+5, 'g', label ='Choke Pressure(Bar)')
-    plt.legend(loc='best')
-    plt.subplot(4,1,3)
-    plt.plot(d.time, np.array(Qbit.VALUE)*60000, 'k', label ='Qbit (l/min)')
-    plt.plot(d.time, np.array(Qchoke.VALUE)*60000, 'r', label ='Qchoke (l/min)')
-    plt.plot(d.time, np.array(Qpump.VALUE)*60000, 'm', label ='Qpump (l/min)')
-    plt.plot(d.time, np.array(Qres.VALUE)*60000, 'b', label ='Qres (l/min)')    
-    plt.legend(loc='best')
-    plt.subplot(4,1,4)
-    plt.plot(d.time, MD.VALUE, 'g', label ='MD(m)')
-    plt.legend(loc='best')
-    plt.show()
+            #%%
+    # Print solution
+    print('------------------------------------------------')
+    print('Pressure at Pump [Bar]', Pp.value[-1]*1e-5)
+    print('Pressure at Choke Valve [Bar]', Pc.value[-1]*1e-5)
+    print('Bit pressure [Bar]', Pbit.value[-1]*1e-5)
+    print('Flow Rate through Bit [l/min] ', Qbit.value[-1]*60000)
+    print('Flow Rate through Choke [l/min]', Qchoke.value[-1]*60000)
+    #print('Bit Height [m]', TVD.value)
+    print('------------------------------------------------')
+    print('')
+
 
 
     return (Pp.VALUE[-1], Pc.VALUE[-1], \
             Qbit.VALUE[-1], Pbit.VALUE[-1], \
             Qres.VALUE[-1], MD.VALUE[-1] )
-##%%
-## Print solution
-#print('------------------------------------------------')
-#print('Pressure at Pump [Pa]', Pp.value)
-#print('Pressure at Choke Valve [Pa]', Pc.value)
-#print('Bit pressure [Pa]', Pbit.value)
-#print('Flow Rate through Bit [m^3/s] ', Qbit.value)
-#print('Flow Rate through Choke [m^3/s]', Qchoke.value)
-##print('Bit Height [m]', TVD.value)
-#print('------------------------------------------------')
-#print('')
-#    
-    
+
 #%% Run   
 print(drillstring(2000.0*(1e-3/60), 800.0*(1e-3/60), 1900,20))
+
+    
+    
