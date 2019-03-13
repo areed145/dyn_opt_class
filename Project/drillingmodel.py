@@ -30,7 +30,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
     # Reservoir Model
     #TVD, ROP, Pf = rm.reservoir(depth)
     TVD = 1951
-    ROP = 40/3600
+    ROP = 0#40/3600
     Pf = 1500
 
     # Model Constants
@@ -75,7 +75,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
     Va_init = A_a * depth    
     Va      = d.Var(value = Va_init, name='Va')  # volume of the annulus (m3)
     
-    Pp    = d.Var(value = 40.0e+5, name='Pp')  # pump pressure inside the drill string
+    Pp    = d.Var(value = 0.0e+5, name='Pp')  # pump pressure inside the drill string
     Pc    = d.Var(value = 10.0e+5, name='Pc')  # choke pressure out the annulus
     Qbit  = d.Var(value = pumpQ, name='Qbit')   # volume flow rate through the drill bit
      # volume flow rate through the choke (Qpump+Qback)
@@ -231,7 +231,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
         plt.clf()
         for j in range(N):
             pd.append(Pd[j].VALUE[i]*1e-5)
-            pa.append(Pa[j].VALUE[i]*1e-5)
+            pa.append(Pa[N-1-j].VALUE[i]*1e-5)
         plt.plot(pd, np.linspace(0,-MD.VALUE[-1],N), 'r', label='Pressure Drillstring(Bar)')
         plt.plot(pa, np.linspace(0,-MD.VALUE[-1],N), 'b', label='Pressure Annulus(Bar)')
         plt.legend(loc='best')
@@ -258,7 +258,7 @@ def drillstring(pumpQ, backQ, depth, dTime):
             Qres.VALUE[-1], MD.VALUE[-1] )
 
 #%% Run   
-print(drillstring(2000.0*(1e-3/60), 800.0*(1e-3/60), 1900,20))
+print(drillstring(2000.0*(1e-3/60), 800.0*(1e-3/60), 1500,20))
 
     
     
