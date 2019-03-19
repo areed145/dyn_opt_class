@@ -1,264 +1,225 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+#
+# reservoirmodel.py - A simple table-lookup model of an oil reservoir
+#
+__version__   = "1.0.0"
+__date__      = "2019.03.18"
 
 import math
 import numpy as np
-#import reservoirmodel as rm
+import reservoirmodel as rm
 from gekko import GEKKO
-import matplotlib.pyplot as plt
 
-
-rmt = True  # Solve local or remote
 
 #%% Drillstring Model
-def drillstring(pumpQ, backQ, depth, dTime):
-    
-    
-    
-    # Specify Model
-    
-    #How to define the number of elements?
-    #Temperature change? Depth? 
-    N = 22                 #Number of elements along the borehole, min = 3
-    
-    
-    nSteps = 20
+def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
+    """
+    Arguments:
+        pumpQ   - Mud pump flowrate for this interval (m3/min)
+        backQ   - Back-pressure pump flowrate for this interval (m3/min)
+        chokeVP - Choke Valve Opening from 0-100 [%]
+        depth   - Measured depth at the start of this interval (m)
+        dTime   - Length of the interval (seconds)
+    Returns:
+        Pp     - Mud pump discharge pressure (bar)
+        Pc     - Choke valve inlet pressure (bar)
+        Qbit   - Flow through the drill bit (m3/min)
+        Pbit   - Pressure at the drill bit (bar)
+        Qchoke - Flow through the choke (m3/min)
+        MD     - Measured depth at the end of the interval (m)
+    """
+    rmt = False  # Solve local or remote
+
     d = GEKKO(remote=rmt)
-    d.time = np.linspace(0, dTime, nSteps+1)
 
-    # Reservoir Model
-    #TVD, ROP, Pf = rm.reservoir(depth)
-    TVD = 1951
-    ROP = 0#40/3600
-    Pf = 1500
-
+    # Set up the timeline for the requested interval
+    st = 2.0   # simulation time interval (seconds)
+    nt = int(dTime/st)+1 # simulation time points
+    d.time = np.linspace(0,dTime,nt)
+    
     # Model Constants
-    g = 9.81    # Gravitational constant (kg-m/s^2)
-    #h = 1951.0  # Height of wellbore (m)
-    r_di = 2.0 * 0.0254    # drillstring inner radius (m) (4" diameter)
-    r_do = 2.5 * 0.0254    # drillstring outer radius (m) (5" diameter)
-    r_ci = 4.3125 * 0.0254 # annulus inner radius (m) (8 5/8" diameter)
-    A_d = math.pi*r_di**2  # drillstring inner area , m^2
-    A_a = math.pi*(r_ci**2 - r_do**2)  # annulus flow area , m^2
-    A_h = math.pi*r_ci**2  # borehole cross area, m^2
+    Patm = d.Const(1)              # Atmospheric pressure outside choke [bar]    
+    Md = d.Const(2500)            # Lumped Density per length of Mud in Drill String [kg/m^4 * 1e5]
+    Ma = d.Const(800)             # Lumped Density per length of Mud in Annulus [kg/m^4 * 1e5]
+    g = d.Const(9.81)               # Gravitational constant (kg-m/s^2)
+    r_di = 2.0 * 0.0254             # drillstring inner radius (m) (4" diameter)
+    r_do = 2.5 * 0.0254             # drillstring outer radius (m) (5" diameter)
+    r_ci = 4.3125 * 0.0254          # annulus inner radius (m) (8 5/8" diameter)
+    Ad = d.Const(math.pi*r_di**2)  # drillstring inner area , m^2
+    Aa = d.Const(math.pi*(r_ci**2 - r_do**2))  # annulus flow area , m^2
+    Ah = d.Const(math.pi*r_ci**2)  # borehole cross area, m^2
     
-    Kc = 0.4                # choke constant
-    Zc = 50                # choke opening 0-100
-    Patm = 1e+5             # outside pressure
-    
-    Fa = d.Const(value = 2.0e+9)   # friction coefficient inside the annulus
-    Fd = d.Const(value = 5.0e+9)   # friction coefficient inside the drill string
-    Fb = d.Const(value = 1.0e+9)   # friction coefficient inside the drill bit
-    
-    betaD = d.Const(value = 2.0e+9, name='betaD')   # bulk modulus of the drill string
-    betaA = d.Const(value = 1.0e+9, name='betaA')   # bulk modulus of the annulus
+    # Calling Arguments
+    Qpump = d.Param(pumpQ)          # Mud pump flow rate[m^3/min] 
+    Qback = d.Param(backQ)          # Back-pressure pump flow rate [m^3/min]
+    Zc = d.Param(chokeVP)           # Choke Valve Opening from 0-100 [%]
 
-    #Ma    = d.FV(value = 0.0)      # mass of fluid in the annulus
-    #Md    = d.FV(value = 0.0)      # mass of fluid in the drill string
-    mass  = d.FV(value = 4.3e+8, name='mass')   # Total mass of fluid (Ma + Md)
+    # Parameters from Reservoir Model
+    MD_init = np.zeros(len(d.time))
+    ROP_init = np.zeros(len(d.time))
+    TVD_init = np.zeros(len(d.time))
+    PF_init = np.zeros(len(d.time))
+    K_init = np.zeros(len(d.time))
+    EL_init = np.zeros(len(d.time))
 
-    rhoA  = d.Param(value = 1580.0)   # density of the fluid in the drill string
-    rhoD  = d.Param(value = 1580.0)   # density of the fluid in the annulus
-    #rhoM  = d.FV(value = 1580.0)   # density of the mud used
-
-    Qres  = d.Param(value = 0.0, name='Qres')      # volume flow rate from the reservoir
-    Qloss  = d.Param(value = 0.0, name='Qloss')      # volume flow rate loss to the reservoir
+    MD_init[0] = depth
+    TVD_init[0], ROP_init[0], PF_init[0], K_init[0], EL_init[0] = rm.reservoir(depth)
     
-    # Define Variables
-    Qpump = d.Param(value = pumpQ, name='Qpump')  # volume flow rate through the pump
-    Qback = d.Param(value = backQ, name='Qback')  # volume flow rate through the back pressure pump
-    
-    Vd_init = A_d * depth
-    Vd      = d.Var(value = Vd_init, name='Vd')  # volume of the drill string (m3)
-    
-    Va_init = A_a * depth    
-    Va      = d.Var(value = Va_init, name='Va')  # volume of the annulus (m3)
-    
-    Pp    = d.Var(value = 0.0e+5, name='Pp')  # pump pressure inside the drill string
-    Pc    = d.Var(value = 10.0e+5, name='Pc')  # choke pressure out the annulus
-    Qbit  = d.Var(value = pumpQ, name='Qbit')   # volume flow rate through the drill bit
-     # volume flow rate through the choke (Qpump+Qback)
-    #Qchoke = d.Intermediate( Qbit + Qback + Qres - Qloss)
-    #Qchoke_init = d.Intermediate(Kc * Zc * (rhoA*(Pc-Patm)**0.5))
-    Qchoke = d.Var(value = Qpump, name='Qchoke')
-    d.Equation( Qchoke == Kc * Zc * (rhoA*(Pc-Patm)**0.5)*1e-10 )
-    
-    #d.Equation( Qchoke == Qbit + Qback + Qres - Qloss )
-
-    MD = d.Var(value = depth, name='MD')    # measured depth
-    
-
-    Pbit  = d.Var(value = 0.0, name='Pbit')      # Pressure at the drill bit / BHP
-    #dPa   = m.Var(value = 0.0)      # differential pressure across the annulus (?)
+    for s in range(1,len(d.time)):
+        MD_init[s] = MD_init[s-1] + ROP_init[s-1] * ( d.time[s] - d.time[s-1] )
+        TVD_init[s], ROP_init[s], PF_init[s], K_init[s], EL_init[s] = rm.reservoir(MD_init[s])
         
-    Te = 59.5   # surface earth temperature (degF)
-    ge = 0.025  # geothermal gradient (degF/ft)
+    MD  = d.Param(MD_init)      # Measured depth (m)
+    ROP = d.Param(ROP_init)     # rate of penetration (m/min)
+    TVD = d.Param(TVD_init)     # Total vertical depth of well [m]
+    PF  = d.Param(PF_init)      # Formation Pressure (bar)
+    K   = d.Param(K_init)       # Permeability
+    EL  = d.Param(EL_init)      # Effective Length (m)
     
-    # Model equations
+    # Other Model Parameters
+    Kc     = d.Param(0.4)           # Valve Coefficient 
+    betaD  = d.Param(90000)          # Bulk Modulus of Mud in Drill String [bar]
+    betaA  = d.Param(50000)    
+    Fd     = d.Param(80)             # Friction Factor in the drill string [bar*s^2/m^6]
+    Fa     = d.Param(330)            # Friction Factor in the Annulus [bar*s^2/m^6]
+    rhoD   = d.Param(1240)          # Mud Density in the Drill String [kg/m^3]        
+    rhoA   = d.FV(1290,lb=rhoD)     # Mud Density in the Drill String Annulus [kg/m^3]    
     
-    # Drillstring and annulus volumes
-    d.Equation ( Vd.dt() == A_d * ROP + 0*Vd)
-    d.Equation ( Va.dt() == A_a * ROP + 0*Vd)
+
+    # Variables
+    Pp = d.Var(38)                # Pressure at Pump [bar]
+    Pc = d.Var(2,lb=Patm)         # Pressure at Choke Valve [bar]
+
+    Qbit = d.Var(Qpump - ROP*Ad,lb=0)    # Flow Rate through Bit [m^3/min]
     
-    # Equation 5.1
-    #d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - Vd.dt()) )
+    Pbit_init = Pc + (rhoA*(Fa/3600)*depth*(Qbit**2) + rhoA*g*TVD_init[0])*1e-5
+    Pbit = d.Var(Pbit_init) # Bit pressure [bar]
+
+    # Reservoir gas influx flow rate [m^3/min]
+    #Qres_init = rm.reservoir_flow(200, 1, 4000)
+    Qres_init = K * Ah * (PF - Pbit)/EL
+    #Qres_init = rm.reservoir_flow(Pbit.value, math.pi*r_ci**2, depth)
+    Qres = d.Var(Qres_init)
     
-    # Equation 5.2
-    d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Va.dt()) )
-    #d.Equation( Va*Pc.dt() == (betaA) * (Qres + Qbit + Qback - Qchoke) )
+    # Flow Rate through Choke Valve [m^3/min]
+    Qchoke_init = Kc * Zc * d.sqrt(rhoA*(Pc-Patm)*1e-5) 
+    Qchoke = d.Var(Qchoke_init,lb=0)        # Flow Rate through Choke [m^3/min]
     
-    # Equation 5.3
-    #Using the equation by replacing dPa by the pressure balance in drillpipe
-    #d.Equation( Qbit.dt() == (1/mass) * (Pp - Pbit - Fd*(Qbit**2) \
-    #                    + rhoD*g*TVD ) )
+    # Intermediates
+    M = d.Intermediate(Md+Ma)   # Total Mud Density per length [kg/m^4]
+    Va = d.Intermediate(Aa*MD)  # Volume of Annulus [m^3]
+    Vd = d.Intermediate(Ad*MD)  # Volume of Drill String [m^3]
     
-    # Equation 5.6
-    #d.Equation( Pbit == Pc + rhoA*g*TVD + Fa*(Qbit**2) )
+    #Equations
+    
+    # Bit pressure [bar]
+    d.Equation(Pbit == Pc + (rhoA*(Fa/3600)*MD*(Qbit**2) + rhoA*g*TVD)*1e-5)
+
+    # Flow Rate through Choke Valve [m^3/min] based on valve characteristics
+    d.Equation(Qchoke == Kc * Zc * d.sqrt(rhoA*(Pc-Patm)*1e-5))
+
+    # Flow to/from reservior based on bit pressure and formation data
+    d.Equation(Qres == K * Ah * (PF - Pbit)/EL)
+
+    # Change in total vertical depth from formation information
+    #d.Equation(TVD.dt() == rm.reservoir_dTVD(MD))
+
+    # Mud pump discharge (Equation 5.1)
+    d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - ROP*Ad) )
+    
+    # Choke valve pressure (Equation 5.2)
+    d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - ROP*Aa))
+    
+    # Flow through drill bit (Equation 5.3)
+    d.Equation( Qbit.dt() == (1e+5/M) * (Pp - Pbit - Fd/3600*(Qbit**2) \
+                        + rhoD*g*TVD/1e+5 ) )
     
     # Drilling rate from reservior simulation
-    d.Equation( MD.dt() == ROP + 0*Vd )
+    #d.Equation( MD.dt() == ROP )
     
     
-    ###########################################################################
-    ##Finite elements approach
-    ###########################################################################
-    
-    #Need to complete this. But the flow of reading the model is to imagine
-    #the drillstring and the annulus being divided into N sections
-    #Top of the well is the start for the drillstring element 0 -> bottom is element N-1
-    #Bottom of the well is the start for the annulus element 0 -> wellhead is element N-1
-    #The equations are in the sequential order of flow across each element inside the 
-    #drillstring, across the bit and finally up the annulus
-    qp = 2000.0*1e-3/60
-    pp = 40.0e+5
-    
-    Qd = [d.Var(value=0) for i in range(N)]     #Flow inside the drillstring, m^3/s
-    Qa = [d.Var(value=0) for i in range(N)]     #Flow inside the annulus, m^3/s
-    Pd = [d.Var(value=0) for i in range(N)]     #Pressure inside drillstring, Pa
-    Pa = [d.Var(value=0) for i in range(N)]     #Pressure inside annulus, Pa
-    
-    #Pressure inside the drillstring
-    d.Equation(Pp.dt() == Pd[0].dt())
-    d.Equation(Pd[0].dt() == (betaD/(Vd/N))*(Qpump - Qd[0]))    
-    for i in range(1,N-1):
-        d.Equation(Pd[i].dt() == (betaD/(Vd/N))*(Qd[i-1] - Qd[i]))    
-    d.Equation(Pd[N-1].dt() == (betaD/(Vd/N))*(Qd[N-2] - Qbit - Vd.dt()))
-    d.Equation(Pd[N-1] == Pbit)
-    
-    #Flow inside the drillstring    
-    for i in range(0,N-1):
-        d.Equation(Qd[i].dt() == (1/(mass/N)) * (Pd[i] - Pd[i+1] - (Fd/N)*(Qd[i]**2) \
-                                    + rhoD*g*TVD/N )) 
-    d.Equation( Qbit == Qd[N-1] )
-
-         
-    #Flow across the drillbit
-    d.Equation(Qbit.dt() == (1/(mass/N)) * (Pd[N-1] - Pa[0] - Fb*(Qbit**2) \
-                        + (rhoD - rhoA)*g*TVD/N) )  
-    
-    
-    #Pressure inside the annulus
-    d.Equation(Pa[0].dt() == (betaA/(Va/N))*(Qbit + Qres - Qloss - Qa[0]))
-    for i in range(1,N):
-        d.Equation(Pa[i].dt() == (betaA/(Va/N))*(Qa[i-1] - Qa[i]))
-    d.Equation(Pa[N-1].dt() == (betaA/(Va/N))*(Qa[N-2] - Qchoke + Qback - Va.dt()))
-    
-    #d.Equation(Pa[N-1] == Pc)
-    
-    #Flow inside the annulus
-    for i in range(0,N-1):
-        d.Equation(Qa[i].dt() == (1/(mass/N)) * (Pa[i] - Pa[i+1] - (Fa/N)*(Qa[i]**2) \
-                        - rhoA*g*TVD/N) ) 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    # @@ Needed to complete simulation...
-    
-    # Calculate Qres from reservior pressure and Pbit
-    # Add temperature effects on mud density from TVD
-    # Finite elements equations replacing 5.1-5.6
-    
-    
-    
-    
-    
-    
+    # Options
     #d.options.solver = 1
-    # Solver options
-    d.options.IMODE = 4  # Dynamic Simulation
-    d.options.MAX_ITER = 5000
-    
-    
-    # Solve the model
+    #d.options.imode = 3    # Calculate starting conditions
+    d.options.imode = 4     # dynamic simulation
     d.solve()
     
-    
-    
-#        #%% Plot
-#    
-#    plt.figure(4)
-#    plt.subplot(4,1,1)
-#    plt.plot(d.time, np.array(Pbit.VALUE)/1e+5, 'r', label='BHP(Bar)')
-#    plt.plot(d.time, np.array(Pp.VALUE)/1e+5, 'b', label='Pump Pressure(Bar)')
-#    plt.legend(loc='best')
-#    plt.subplot(4,1,2)
-#    plt.plot(d.time, np.array(Pc.VALUE)/1e+5, 'g', label ='Choke Pressure(Bar)')
-#    plt.legend(loc='best')
-#    plt.subplot(4,1,3)
-#    plt.plot(d.time, np.array(Qbit.VALUE)*60000, 'k', label ='Qbit (l/min)')
-#    plt.plot(d.time, np.array(Qchoke.VALUE)*60000, 'r', label ='Qchoke (l/min)')
-#    plt.plot(d.time, np.array(Qpump.VALUE)*60000, 'm', label ='Qpump (l/min)')
-#    plt.plot(d.time, np.array(Qres.VALUE)*60000, 'b', label ='Qres (l/min)')    
-#    plt.legend(loc='best')
-#    plt.subplot(4,1,4)
-#    plt.plot(d.time, MD.VALUE, 'g', label ='MD(m)')
-#    plt.legend(loc='best')
-#    plt.show()
-#    
-    #%% Plot pressure profile
-    #pd = []
-    plt.figure()
-    for i in range(len(d.time)):
-        pd = []
-        pa = []
-        plt.clf()
-        for j in range(N):
-            pd.append(Pd[j].VALUE[i]*1e-5)
-            pa.append(Pa[N-1-j].VALUE[i]*1e-5)
-        plt.plot(pd, np.linspace(0,-MD.VALUE[-1],N), 'r', label='Pressure Drillstring(Bar)')
-        plt.plot(pa, np.linspace(0,-MD.VALUE[-1],N), 'b', label='Pressure Annulus(Bar)')
-        plt.legend(loc='best')
-        plt.draw()
-        plt.pause(0.5)
-        
-    
-            #%%
     # Print solution
-    print('------------------------------------------------')
-    print('Pressure at Pump [Bar]', Pp.value[-1]*1e-5)
-    print('Pressure at Choke Valve [Bar]', Pc.value[-1]*1e-5)
-    print('Bit pressure [Bar]', Pbit.value[-1]*1e-5)
-    print('Flow Rate through Bit [l/min] ', Qbit.value[-1]*60000)
-    print('Flow Rate through Choke [l/min]', Qchoke.value[-1]*60000)
-    #print('Bit Height [m]', TVD.value)
-    print('------------------------------------------------')
-    print('')
-
-
+   
 
     return (Pp.VALUE[-1], Pc.VALUE[-1], \
             Qbit.VALUE[-1], Pbit.VALUE[-1], \
-            Qres.VALUE[-1], MD.VALUE[-1] )
+            Qchoke.VALUE[-1], MD.VALUE[-1] )
+    
 
 #%% Run   
-print(drillstring(2000.0*(1e-3/60), 800.0*(1e-3/60), 1500,20))
 
+def test():
+    main()
+    return    
+
+def main():
+    mud_pump_flow = 2004.0*(1e-3/60)
+    bp_pump_flow = 804.0*(1e-3/60)
+    choke_valve = 30.0
+    meas_depth = 4000.0
+    time_interval = 20.0
+
+    print('-[Inputs]---------------------------------------')
+    print('Flow Rate through Mud Pump [m^3/min] =', mud_pump_flow)
+    print('Flow Rate through Back-pressure Pump [m^3/min] =', bp_pump_flow)
+    print('Choke Valve Position [%] =', choke_valve)
+    print('Initial measured depth [m] =', meas_depth)
+    print('Time interval [minutes] =', time_interval)
+    print('------------------------------------------------\n')
     
+    print('Calling drillstring()...')
+    Pp, Pc, Qb, Pb, Qc, md = drillstring(mud_pump_flow, bp_pump_flow, \
+                                         choke_valve, meas_depth, \
+                                         time_interval*60 )
     
+    print('-[Results]--------------------------------------')
+    print('Pressure at Pump [bar] =', Pp)
+    print('Pressure at Choke Valve [bar] =', Pc)
+    print('Bit pressure [bar] =', Pb)
+    print('Flow Rate through Bit [m^3/min] =', Qb)
+    print('Flow Rate through Choke [m^3/min] =', Qc)
+    print('Measured Depth [m] =', md)
+    print('------------------------------------------------\n')
+    
+    return     
+
+#%% This is only run whne script is executed as a standalone program
+if __name__ == '__main__':
+    import sys, os, traceback, argparse
+    import time
+    #import matplotlib.pyplot as plt
+    #import re
+    #from pexpect import run, spawn
+
+    try:
+        start_time = time.time()
+        parser = argparse.ArgumentParser(description='A simple table-lookup reservoir model')
+        parser.add_argument('--version', action='version', version='%(prog)s v'+__version__)
+        parser.add_argument ('-v', '--verbose', action='store_true', help='produce verbose output')
+        parser.add_argument ('-t', '--test', action='store_true', help='run test suite')
+        args = parser.parse_args()
+        if args.verbose: print (time.asctime())
+        if args.test: 
+            test()
+        else:
+            main()
+        if args.verbose: print (time.asctime())
+        if args.verbose: print ('Elapsed time:', \
+                                (time.time() - start_time), 'seconds')
+        #sys.exit(0)
+    except KeyboardInterrupt as e: # Ctrl-C
+        raise e
+    except SystemExit as e: # sys.exit()
+        raise e
+    except Exception as e:
+        print ('ERROR, UNEXPECTED EXCEPTION')
+        print (str(e))
+        traceback.print_exc()
+        os._exit(1)

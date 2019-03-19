@@ -3,7 +3,7 @@
 
 import math
 import numpy as np
-#import reservoirmodel as rm
+import reservoirmodel as rm
 from gekko import GEKKO
 import matplotlib.pyplot as plt
 
@@ -69,13 +69,14 @@ Vd = d.Intermediate(Ad*MD)  # Volume of Drill String [m^3]
 #d.Equation(Pbit == Pbit_init)
 d.Equation(Pbit == Pc + (rhoA*(Fa/3600)*MD*(Qbit**2) + rhoA*g*TVD)*1e-5)
 d.Equation(Qchoke == Kc * Zc * d.sqrt(rhoA*(Pc-Patm)*1e-5))
-
+d.Equation(Qres == rm.reservoir_flow(Pbit, Ah, MD))
 # Equation 5.1
 d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - ROP*Ad) )
 
 # Equation 5.2
-d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Qloss \
-                       - ROP*Aa))
+#d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - Qloss \
+#                       - ROP*Aa))
+d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - ROP*Aa))
 
 # Equation 5.3
 d.Equation( Qbit.dt() == (1e+5/M) * (Pp - Pbit - Fd/3600*(Qbit**2) \
