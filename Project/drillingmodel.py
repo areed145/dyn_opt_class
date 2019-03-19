@@ -143,7 +143,7 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     #d.options.solver = 1
     #d.options.imode = 3    # Calculate starting conditions
     d.options.imode = 4     # dynamic simulation
-    d.solve()
+    d.solve(disp=False)
     
     # Print solution
    
@@ -160,11 +160,11 @@ def test():
     return    
 
 def main():
-    mud_pump_flow = 2004.0*(1e-3/60)
-    bp_pump_flow = 804.0*(1e-3/60)
-    choke_valve = 30.0
+    mud_pump_flow = 2.0 #2004.0*(1e-3/60)
+    bp_pump_flow = 0.8 #804.0*(1e-3/60)
+    choke_valve = 1.0
     meas_depth = 4000.0
-    time_interval = 20.0
+    time_interval = 5.0
 
     print('-[Inputs]---------------------------------------')
     print('Flow Rate through Mud Pump [m^3/min] =', mud_pump_flow)
