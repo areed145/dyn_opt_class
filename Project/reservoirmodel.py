@@ -7,19 +7,19 @@ __version__   = "1.0.0"
 __date__      = "2019.03.18"
 
 import pandas as pd
-import numpy as np
+
 #%% Reservoir Model
 res_data_xls = pd.read_excel(r'example well pressure and flow function of depth and time.xlsx', \
                              skiprows=10)
 res_data_xls.drop(0, inplace=True)
 res_data_xls.sort_values(by=['MD Measured Depth (ft)'],inplace=True)
 
-res_data_xls_MD  = res_data_xls['MD Measured Depth (ft)'].values  # measured depth
-res_data_xls_TVD = res_data_xls['TVD True Vertical Depth(ft)'].values  # total vertical depth
-res_data_xls_ROP = res_data_xls['ROP (m/sec)'].values   # rate of penetration
-res_data_xls_K   = res_data_xls['Permeability_k (m2)'].values  # permeability
-res_data_xls_PF  = res_data_xls['Pressure (formation bar)'].values  # formation pressure
-res_data_xls_EL  = res_data_xls['equivilant_length (m)'].values  # effective length
+res_data_xls_MD  = res_data_xls['MD Measured Depth (ft)'].values
+res_data_xls_TVD = res_data_xls['TVD True Vertical Depth(ft)'].values
+res_data_xls_ROP = res_data_xls['ROP (m/sec)'].values
+res_data_xls_K   = res_data_xls['Permeability_k (m2)'].values
+res_data_xls_PF  = res_data_xls['Pressure (formation bar)'].values
+res_data_xls_EL  = res_data_xls['equivilant_length (m)'].values
 
 #print ('res_MD =', (res_MD,))
 #print ('res_TVD =', (res_TVD,))
@@ -79,6 +79,8 @@ def reservoir(depth):
         tvd - total vertical depth
         rop - rate of penetration of the drill
         pf - pressure in the formation
+        k  - Permeability
+        el - Effective Length
     """
     res_MD, res_TVD, res_ROP, res_K, res_PF, res_EL = res_data()
     tvd = 0
@@ -162,20 +164,21 @@ def reservoir_ROP(depth):
 
 def test(pressure, area, depth):
     print('Reservoir variables:')
-    tvd, rop, pf, tvds = reservoir(depth)
+    tvd, rop, pf, k, el = reservoir(depth)
 
     print ('measured depth =', depth)
     print ('total vertical depth =', tvd)
-    print ('total vertical depth slope =', tvds)
     print ('rate of penetration =', rop)
     print ('formation pressure =', pf)
+    print ('permeability =', k)
+    print ('effective length =', el)
     
     print ('flow from reservoir =', reservoir_flow(pressure, area, depth))
 
 def main():
     print('     Depth      TVD  slope(TVD)    ROP     Form Pr  Res Flow')
     for d in range(1000, 30000, 1000):
-        tvd, rop, pf, tvds = reservoir(d)
+        tvd, rop, pf, k, el = reservoir(d)
         print("{0:10d}{1:10.1f}{2:10.5f}{3:10.5f}{4:10.1f}{5:10.1f}".format( \
               d, reservoir_TVD(d), reservoir_dTVD(d), reservoir_ROP(d), \
               pf, reservoir_flow(1800, 0.11, d) ) )
