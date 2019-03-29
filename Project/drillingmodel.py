@@ -78,13 +78,13 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     EL  = d.Param(EL_init)      # Effective Length (m)
     
     # Other Model Parameters
-    Kc     = d.Param(0.4)           # Valve Coefficient 
-    betaD  = d.Param(90000)          # Bulk Modulus of Mud in Drill String [bar]
+    Kc     = d.Param(0.4)       # Valve Coefficient 
+    betaD  = d.Param(90000)      # Bulk Modulus of Mud in Drill String [bar]
     betaA  = d.Param(50000)    
-    Fd     = d.Param(80)             # Friction Factor in the drill string [bar*s^2/m^6]
-    Fa     = d.Param(330)            # Friction Factor in the Annulus [bar*s^2/m^6]
-    rhoD   = d.Param(1240)          # Mud Density in the Drill String [kg/m^3]        
-    rhoA   = d.FV(1290,lb=rhoD)     # Mud Density in the Drill String Annulus [kg/m^3]    
+    Fd     = d.Param(80)         # Friction Factor in the drill string [bar*s^2/m^6]
+    Fa     = d.Param(330)        # Friction Factor in the Annulus [bar*s^2/m^6]
+    rhoD   = d.Param(1240)       # Mud Density in the Drill String [kg/m^3]        
+    rhoA   = d.FV(1290,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
     
 
     # Variables
@@ -121,6 +121,13 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
 
     # Flow to/from reservior based on bit pressure and formation data
     d.Equation(Qres == K * Ah * (PF - Pbit)/EL)
+    
+    # Pressure/flow equations up the annulus
+    # Pa_1 == (betaA/Ah) * (Qbit + Qres_bit - Q_1)
+    # Pa_i == (betaA/Ah) * (Q_(i-1)  + Qres_i - Q_i)
+    # Q_i == Q_(i-1) + Qres_i
+    # Pa_N == (betaA/Ah) * (Q_(N-1) - Q_out)
+    # Qres_i == K_i * Ah * (PF_i - Pa_i)/EL
 
     # Change in total vertical depth from formation information
     #d.Equation(TVD.dt() == rm.reservoir_dTVD(MD))
@@ -160,10 +167,10 @@ def test():
     return    
 
 def main():
-    mud_pump_flow = 2.0 #2004.0*(1e-3/60)
-    bp_pump_flow = 0.8 #804.0*(1e-3/60)
-    choke_valve = 1.0
-    meas_depth = 4000.0
+    mud_pump_flow = 1.0 #2004.0*(1e-3/60)
+    bp_pump_flow = 0.5 #804.0*(1e-3/60)
+    choke_valve = 50.0
+    meas_depth = 1000.0
     time_interval = 5.0
 
     print('-[Inputs]---------------------------------------')
@@ -172,6 +179,14 @@ def main():
     print('Choke Valve Position [%] =', choke_valve)
     print('Initial measured depth [m] =', meas_depth)
     print('Time interval [minutes] =', time_interval)
+    print('------------------------------------------------\n')
+    
+    print('Calling reservoir.reservoir()...')
+    TVD, ROP, PF, K, EL = rm.reservoir(meas_depth)
+    print('-[Results]--------------------------------------')
+    print('True Vertical Depth [m] =', TVD)
+    print('Rate of Penetration [m/s] =', ROP)
+    print('Formation Pressure [bar] =', PF)
     print('------------------------------------------------\n')
     
     print('Calling drillstring()...')
