@@ -71,11 +71,12 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
         MD_init[s] = MD_init[s-1] + ROP_init[s-1] * ( d.time[s] - d.time[s-1] )
         TVD_init[s], ROP_init[s], PF_init[s], K_init[s], EL_init[s] = rm.reservoir(MD_init[s])
 
-    PI_init = K_init * 10000 * 1e5 / (math.log(10.0/r_ci)*0.042)
+    mu = 0.042  # kinematic viscosiry (kg/m*s)
+    PI_init = K_init * 10000 * 1e5 / (math.log(10.0/r_ci)*mu)
 
         
     MD  = d.Param(MD_init)      # Measured depth (m)
-    ROP = d.Param(ROP_init)     # rate of penetration (m/min)
+    ROP = d.Param(ROP_init)     # rate of penetration (m/sec)
     TVD = d.Param(TVD_init)     # Total vertical depth of well [m]
     PF  = d.Param(PF_init)      # Formation Pressure (bar)
     K   = d.Param(K_init)       # Permeability
@@ -89,17 +90,17 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     betaA  = d.Param(50000)    
     Fd     = d.Param(80)         # Friction Factor in the drill string [bar*s^2/m^6]
     Fa     = d.Param(330)        # Friction Factor in the Annulus [bar*s^2/m^6]
-    #rhoD   = d.Param(1240)       # Mud Density in the Drill String [kg/m^3]        
-    rhoD   = d.Param(900)       # Mud Density in the Drill String [kg/m^3]        
-    #rhoA   = d.FV(1290,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
-    rhoA   = d.FV(950,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
+    rhoD   = d.Param(1240)       # Mud Density in the Drill String [kg/m^3]        
+    #rhoD   = d.Param(900)       # Mud Density in the Drill String [kg/m^3]        
+    rhoA   = d.FV(1290,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
+    #rhoA   = d.FV(950,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
     
 
     # Variables
     Pp = d.Var(38)                # Pressure at Pump [bar]
     Pc = d.Var(2,lb=Patm)         # Pressure at Choke Valve [bar]
 
-    Qbit = d.Var(Qpump - ROP*Ad,lb=0)    # Flow Rate through Bit [m^3/min]
+    Qbit = d.Var(Qpump - 60*ROP*Ad,lb=0)    # Flow Rate through Bit [m^3/min]
     
     Pbit_init = Pc + (rhoA*(Fa/3600)*depth*(Qbit**2) + rhoA*g*TVD_init[0])*1e-5
     Pbit = d.Var(Pbit_init) # Bit pressure [bar]
@@ -159,10 +160,10 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     #d.Equation(TVD.dt() == rm.reservoir_dTVD(MD))
 
     # Mud pump discharge (Equation 5.1)
-    d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - ROP*Ad) )
+    d.Equation( Pp.dt() == (betaD/Vd) * (Qpump - Qbit - 60*ROP*Ad) )
     
     # Choke valve pressure (Equation 5.2)
-    d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - ROP*Aa))
+    d.Equation( Pc.dt() == (betaA/Va) * (Qres + Qbit + Qback - Qchoke - 60*ROP*Aa))
     
     # Flow through drill bit (Equation 5.3)
     d.Equation( Qbit.dt() == (1e+5/M) * (Pp - Pbit - Fd/3600*(Qbit**2) \
@@ -179,6 +180,7 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     d.solve(disp=False)
     
     # Print solution
+    #print("PI =",PI.value[-1])
    
 
     return (Pp.VALUE[-1], \
@@ -198,9 +200,11 @@ def test():
 
 def main():
     mud_pump_flow = 1.0 #2004.0*(1e-3/60)
-    bp_pump_flow = 0.4 #804.0*(1e-3/60)
-    choke_valve = 20.0
-    meas_depth = 8000.0*.3048
+    bp_pump_flow = 0.2 #804.0*(1e-3/60)
+    choke_valve = 50.0
+    meas_depth = 6000.0*.3048  # Normal
+    #meas_depth = 8000.0*.3048  # loss of circ
+    #meas_depth = 15400.0*.3048  # Kick
     time_interval = 5.0
 
     print('-[Inputs]---------------------------------------')
@@ -234,7 +238,15 @@ def main():
     print('Flow Rate through Bit [m^3/min] =', Qb)
     print('Flow Rate through Choke [m^3/min] =', Qc)
     print('Flow Rate from reservoir [m^3/min] =', Qr)
+    print('Flow Rate from reservoir [bbl/h] =', Qr*60/0.159)
     print('Measured Depth [m] =', md)
+    print()
+    print("delta Pressure [bar ... psi]", Pb-PF, "...", (Pb-PF)*14.7)
+    print()
+    print("RoC of Mud Pit Volume [m3/day]", \
+              (Qc - mud_pump_flow - bp_pump_flow) * 1440)
+    print("RoC of Mud Pit Volume [bbl/h]", \
+              (Qc - mud_pump_flow - bp_pump_flow) * 60 / 0.159)
     print('------------------------------------------------\n')
     
     return     
