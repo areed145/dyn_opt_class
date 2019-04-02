@@ -24,6 +24,10 @@ EXIT STATUS
 
     TODO: List exit codes
 
+AUTHOR
+
+    Rob Hawkins <webwords@txhawkins.net>
+
 LICENSE
 
     This program is free software; you can redistribute it and/or
@@ -44,6 +48,7 @@ VERSION
 
     1.0.0
 """
+__author__    = "Rob Hawkins <webwords@txhawkins.net>"
 __version__   = "1.0.0"
 __date__      = "2013.12.01"
 
@@ -56,67 +61,84 @@ __date__      = "2013.12.01"
 import numpy as np
 from gekko import GEKKO
 import matplotlib.pyplot as plt
-
 import sys, os, traceback, argparse
 import time
 import re
 #from pexpect import run, spawn
 
-def mudpit(level_st, rho_st, rho_in, inflow, outflow, mud, water, dTime):
-    """
-    Arguments:
-        level_st - Mud pit level at start (m)
-        rho_st   - Mud density in pit at start (kg/m3)
-        rho_in   - Density of inflow from choke (kg/m3)
-        inflow   - Flow in from Choke (m3/min)
-        outflow  - Flow out to mud pumps (m3/min)
-        mudflow  - Mud concentrate makeup (m3/min)
-        water    - Fresh water makeup (m3/min)
-        dTime    - Length of the interval (seconds)
-    Returns:
-        level    - Mud pit level at end (m)
-        rho      - Mud density in pit at end (kg/m3)
-    """
+def process():
+
     #%% Non-model parameters
     rmt = False  # Solve local or remote
+    tf = 10.0     # Final time
+    npts = 100    # time steps
+    tmax = 8.0    # end point for "terminal" kinds of limits 
 
     #%% Specify model
     m = GEKKO(remote=rmt)
-
-    st = 10.0   # simulation time interval (seconds)
-    nt = int(dTime/st)+1 # simulation time points
-    m.time = np.linspace(0,dTime,nt)
+    m.time = np.linspace(0, tf, npts+1)  # Model Timeline
 
     # Model Constants and Parameters
-    rhoM = m.Const(value=1800.0)    # makeup mud density (kg/m3)
-    rhoW = m.Const(value=1000.0)    # water density (kg/m3)
-    #pitV = m.Const(value=10.0)     # Mud pit volume (m3)
-    pitA = m.Const(value=5.0)      # Mud pit area (m2)
+    c1 = 1.0       # constant #1
 
     # Model Parameters
+    p1 = m.Param(value=0.0)     # parameter #1
 
     # Model Variables
-    level = m.Var(value=level_st)                 # Pit level (m)
-    rho   = m.Var(value=rho_st)                   # Mud density (kg/m3)
-    massP = m.Var(value=level_st * pitA * rho_st) # Mud mass in pit (kg)
-    volP = m.Var(value=level_st * pitA)           # Volume of pit (m3)
+    y = m.Var(value=-1.0)       # general variable
+
+    u = m.MV(value=1.0)         # MV
+
+    x = m.CV(value=1.0)         # CV
+
+    # Objective
+    term = m.Param(value=np.array([int(t>=tmax) for t in m.time]))
+    m.Obj(term*y*y)
+    m.Obj(term*x*x)
+    m.Obj(term*u*u)
 
     # Model Equations
-    m.Equation( level.dt() == (1/pitA)*(inflow + mud + water - outflow)/60 )
-    m.Equation( massP.dt() == (rho_in*inflow + rhoM*mud + rhoW*water - rho*outflow)/60)
-    m.Equation( volP.dt() == (inflow + mud + water - outflow)/60)
-    m.Equation( rho == massP / volP)
+    m.Equation( y.dt() == -y + u )
+    m.Equation( 5.0*x.dt() == -x + u )
+
+    # Tuning
+
+    # MV tuning parameters
+    u.STATUS = 1        # turn MV ON
+    u.DCOST  = 0.01     # move penalty
+    u.DMAX   = 100.0    # maximum move
+
+    # CV tuning parameters
+    x.STATUS = 1        # turn CV ON
+    x.SP   = 0.0        # setpoint for L2 norm
+    x.SPLO = -1.0       # low setpoint for L1 norm
+    x.SPHI = 1.0       # high setpoint for L1 norm
+    x.TR_INIT = 1       # initial equal to the current value on coldstart
+    x.TAU     = 2.0     # speed of SP response
 
     # Solver options
-    m.options.IMODE = 4     # Dynamic Simulation
+    m.options.IMODE = 6     # Dynamic Optimization (Control)
+    m.options.CV_TYPE = 2   # L1 or L2 Norm
 
     # Solve the model
     m.solve(disp=False)
 
-    # Return final state
-    return (level.VALUE[-1], rho.VALUE[-1])
+    #%% Display the results
+    plt.figure()
 
+    plt.subplot(2,1,1)
+    plt.plot(m.time,u.value,'k-',label=r'$u$')
+    plt.legend(loc='best')
+    plt.ylabel('MV')
+    plt.subplot(2,1,2)
+    plt.plot(m.time,y.value,'r--',label=r'$y$')
+    plt.plot(m.time,x.value,'g--',label=r'$x$')
+    plt.legend(loc='best')
+    plt.ylabel('CV')
+    plt.xlabel('time')
+    plt.show()
 
+    return
 
 def test ():
 
@@ -127,41 +149,8 @@ def test ():
 def main ():
 
     global options, args
-    mud_pump_flow = 1.0 #2004.0*(1e-3/60)
-    bp_pump_flow = 0.2 #804.0*(1e-3/60)
-    choke_flow = 1.19601
-    mud = 0.0       # Makeup mud flow
-    water = 0.0     # Makeup water
-    level = 10      # mud pit level (m)
-    rhoC = 1240      # choke flow density
-    rhoP = 1240      # mud pit density
-
-    time_interval = 5.0    # time step (minutes)
-
-    outflow = mud_pump_flow + bp_pump_flow
-
-    print('-[Inputs]---------------------------------------')
-    print('Mud Pump Flow           =', mud_pump_flow, 'm3/min')
-    print('Back-pressure Pump Flow =', bp_pump_flow, 'm3/min')
-    print('Choke Flow              =', choke_flow, 'm3/min')
-    print('Makeup Mud Flow         =', mud, 'm3/min')
-    print('Makeup Water Flow       =', water, 'm3/min')
-    print('------------------------------------------------')
-    print('Time interval           =', time_interval, 'minutes')
-    print('Initial mud pit level   =', level, 'm')
-    print('Initial mud density     =', rhoP, 'kg/m3')
-    print('------------------------------------------------')
-    print('Expected mud pit level   =', level+time_interval*(choke_flow-outflow+mud+water)/5, 'm')
-    print('------------------------------------------------\n')
-
-    print ('calling mudpit()')
-    level, rhoP = mudpit(level, rhoP, rhoC, choke_flow, outflow, mud, water, time_interval*60)
-
-    print('-[Results]--------------------------------------')
-    print('Final mud pit level   =', level, 'm')
-    print('Final mud density     =', rhoP, 'kg/m3')
-    print('------------------------------------------------\n')
-
+    # TODO: Do something more interesting here...
+    process()
 
 if __name__ == '__main__':
     try:
@@ -180,7 +169,7 @@ if __name__ == '__main__':
         else:
             main()
         if args.verbose: print (time.asctime())
-        if args.verbose: print ('TOTAL TIME IN MINUTES:',)
+        if args.verbose: print ('TOTAL TIME IN MINUTES:',end="")
         if args.verbose: print ((time.time() - start_time) / 60.0)
 
     except KeyboardInterrupt as e: # Ctrl-C

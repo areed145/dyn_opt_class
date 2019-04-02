@@ -205,11 +205,13 @@ if __name__ == '__main__':
         if args.verbose: print (time.asctime())
         if args.verbose: print ('Elapsed time:', \
                                 (time.time() - start_time), 'seconds')
-        sys.exit(0)
+
     except KeyboardInterrupt as e: # Ctrl-C
         raise e
+
     except SystemExit as e: # sys.exit()
         raise e
+
     except Exception as e:
         print ('ERROR, UNEXPECTED EXCEPTION')
         print (str(e))

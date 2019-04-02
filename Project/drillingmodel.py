@@ -34,7 +34,7 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     d = GEKKO(remote=rmt)
 
     # Set up the timeline for the requested interval
-    st = 2.0   # simulation time interval (seconds)
+    st = 10.0   # simulation time interval (seconds)
     nt = int(dTime/st)+1 # simulation time points
     d.time = np.linspace(0,dTime,nt)
     
@@ -48,7 +48,7 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     r_ci = 4.3125 * 0.0254          # annulus inner radius (m) (8 5/8" diameter)
     Ad = d.Const(math.pi*r_di**2)  # drillstring inner area , m^2
     Aa = d.Const(math.pi*(r_ci**2 - r_do**2))  # annulus flow area , m^2
-    Ah = d.Const(math.pi*r_ci**2)  # borehole cross area, m^2
+    #Ah = d.Const(math.pi*r_ci**2)  # borehole cross area, m^2
     
     # Calling Arguments
     Qpump = d.Param(pumpQ)          # Mud pump flow rate[m^3/min] 
@@ -65,11 +65,13 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     #PI_init = np.zeros(len(d.time))
 
     MD_init[0] = depth
-    TVD_init[0], ROP_init[0], PF_init[0], K_init[0], EL_init[0] = rm.reservoir(depth)
+    TVD_init[0], ROP_init[0], PF_init[0], K_init[0], EL_init[0] \
+                            = rm.reservoir(depth)
     
     for s in range(1,len(d.time)):
         MD_init[s] = MD_init[s-1] + ROP_init[s-1] * ( d.time[s] - d.time[s-1] )
-        TVD_init[s], ROP_init[s], PF_init[s], K_init[s], EL_init[s] = rm.reservoir(MD_init[s])
+        TVD_init[s], ROP_init[s], PF_init[s], K_init[s], EL_init[s] \
+                            = rm.reservoir(MD_init[s])
 
     mu = 0.042  # kinematic viscosiry (kg/m*s)
     PI_init = K_init * 10000 * 1e5 / (math.log(10.0/r_ci)*mu)
@@ -79,9 +81,9 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     ROP = d.Param(ROP_init)     # rate of penetration (m/sec)
     TVD = d.Param(TVD_init)     # Total vertical depth of well [m]
     PF  = d.Param(PF_init)      # Formation Pressure (bar)
-    K   = d.Param(K_init)       # Permeability
-    EL  = d.Param(EL_init)      # Effective Length (m)
-    
+
+    #K   = d.Param(K_init)       # Permeability
+    #EL  = d.Param(EL_init)      # Effective Length (m)
     PI = d.Param(PI_init)
     
     # Other Model Parameters
@@ -218,6 +220,7 @@ def main():
     
     print('Calling reservoir.reservoir()...')
     TVD, ROP, PF, K, EL = rm.reservoir(meas_depth)
+    
     print('-[Results]--------------------------------------')
     print('True Vertical Depth [m] =', TVD)
     print('Rate of Penetration [m/s] =', ROP)
@@ -231,7 +234,7 @@ def main():
                                          choke_valve, meas_depth, \
                                          time_interval*60 )
     
-    print('-[Results]--------------------------------------')
+    print('-[Drilling Results]--------------------------------------')
     print('Pressure at Pump [bar] =', Pp)
     print('Pressure at Choke Valve [bar] =', Pc)
     print('Bit pressure [bar] =', Pb)
@@ -243,6 +246,8 @@ def main():
     print()
     print("delta Pressure [bar ... psi]", Pb-PF, "...", (Pb-PF)*14.7)
     print()
+    print("RoC of Mud Pit Volume [m3/min]", \
+              (Qc - mud_pump_flow - bp_pump_flow))
     print("RoC of Mud Pit Volume [m3/day]", \
               (Qc - mud_pump_flow - bp_pump_flow) * 1440)
     print("RoC of Mud Pit Volume [bbl/h]", \
@@ -274,11 +279,13 @@ if __name__ == '__main__':
         if args.verbose: print (time.asctime())
         if args.verbose: print ('Elapsed time:', \
                                 (time.time() - start_time), 'seconds')
-        #sys.exit(0)
+
     except KeyboardInterrupt as e: # Ctrl-C
         raise e
+
     except SystemExit as e: # sys.exit()
         raise e
+
     except Exception as e:
         print ('ERROR, UNEXPECTED EXCEPTION')
         print (str(e))
