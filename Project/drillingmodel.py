@@ -10,6 +10,7 @@ import math
 import numpy as np
 import reservoirmodel as rm
 from gekko import GEKKO
+#import matplotlib.pyplot as plt
 
 
 #%% Drillstring Model
@@ -192,7 +193,10 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
             Qchoke.VALUE[-1], \
             Qres.VALUE[-1], \
             MD.VALUE[-1] )
-    
+
+#%% Utility functions
+def maxdepth():
+    return rm.reservoir_maxdepth()
 
 #%% Run   
 
@@ -258,9 +262,9 @@ def main():
 
 #%% This is only run whne script is executed as a standalone program
 if __name__ == '__main__':
-    import sys, os, traceback, argparse
+    #import sys
+    import os, traceback, argparse
     import time
-    #import matplotlib.pyplot as plt
     #import re
     #from pexpect import run, spawn
 

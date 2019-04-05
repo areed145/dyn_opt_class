@@ -3,8 +3,6 @@
 #
 # TODO prog_base.py - A starting template for Python scripts
 #
-# Copyright 2013 Robert B. Hawkins
-#
 """
 SYNOPSIS
 
@@ -40,27 +38,19 @@ LICENSE
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-VERSION
-
-    1.0.0
 """
-__version__   = "1.0.0"
-__date__      = "2013.12.01"
 
 # Version   Date        Notes
 # -------   ----------  -------------------------------------------------------
 # 1.0.0     2013.12.01  Starting script template
 #
+__version__   = "1.0.0"
+__date__      = "2013.12.01"
 
 #%%Import packages
 import numpy as np
 from gekko import GEKKO
-import matplotlib.pyplot as plt
-
-import sys, os, traceback, argparse
-import time
-import re
-#from pexpect import run, spawn
+#import matplotlib.pyplot as plt
 
 def mudpit(level_st, rho_st, rho_in, inflow, outflow, mud, water, dTime):
     """
@@ -164,6 +154,11 @@ def main ():
 
 
 if __name__ == '__main__':
+    #import sys
+    import os, traceback, argparse
+    import time
+    #import re
+    #from pexpect import run, spawn
     try:
         start_time = time.time()
         #parser = argparse.ArgumentParser(description="This is the program description",  usage=globals()['__doc__'])

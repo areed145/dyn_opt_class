@@ -2,9 +2,6 @@
 # -*- coding: utf-8 -*-
 #
 # process.py - A wrapper for the drilling process
-__version__   = "1.0.2"
-__date__      = "2019.04.01"
-__author__    = "Robert B. Hawkins <braynebuddy@gmail.com>"
 
 """
 SYNOPSIS
@@ -47,6 +44,17 @@ LICENSE
 # 1.0.1     2019-03-17  Adapted as a GEKKO template
 # 1.0.2     2019-04-01  Drilling process function
 #
+__version__   = "1.0.2"
+__date__      = "2019.04.01"
+
+
+#%% Import modules
+#import numpy as np
+#from gekko import GEKKO
+#import matplotlib.pyplot as plt
+
+import drillingmodel as drill
+import mudpitmodel as mud
 
 #%% The main function in this module
 def process (level_start, rho_start, depth_start, pumpQ, backQ, chokeVP, \
@@ -68,36 +76,33 @@ def process (level_start, rho_start, depth_start, pumpQ, backQ, chokeVP, \
         depth    - Measured depth at end of interval [m]
     """
 
-    #import numpy as np
-    #from gekko import GEKKO
-    #import matplotlib.pyplot as plt
-    
-    import drillingmodel as drill
-    import mudpitmodel as mud
-
     global options, args
 
-    print('\tCalling drillstring()...')
+    #print('\tCalling drillstring()...')
     Pp, Pc, Qb, Pb, Qc, Qr, depth = drill.drillstring(pumpQ, backQ, \
                                          chokeVP, depth_start, dTime*60 )
 
-    print('\t-[Drilling Results]-----------------------------')
-    print('\tPressure at Pump [bar] =', Pp)
-    print('\tPressure at Choke Valve [bar] =', Pc)
-    print('\tBit pressure [bar] =', Pb)
-    print('\tFlow Rate through Bit [m^3/min] =', Qb)
-    print('\tFlow Rate through Choke [m^3/min] =', Qc)
-    print('\tFlow Rate from reservoir [m^3/min] =', Qr)
-    print('\tFlow Rate from reservoir [bbl/h] =', Qr*60/0.159)
-    print('\t------------------------------------------------\n')
+    #print('\t-[Drilling Results]-----------------------------')
+    #print('\tPressure at Pump [bar] =', Pp)
+    #print('\tPressure at Choke Valve [bar] =', Pc)
+    #print('\tBit pressure [bar] =', Pb)
+    #print('\tFlow Rate through Bit [m^3/min] =', Qb)
+    #print('\tFlow Rate through Choke [m^3/min] =', Qc)
+    #print('\tFlow Rate from reservoir [m^3/min] =', Qr)
+    #print('\tFlow Rate from reservoir [bbl/h] =', Qr*60/0.159)
+    #print('\t------------------------------------------------\n')
 
     rhoC = rho_start
     
-    print ('\tCalling mudpit()\n')
+    #print ('\tCalling mudpit()\n')
     level, rho = mud.mudpit(level_start, rho_start, rhoC, Qc, pumpQ+backQ, \
                         mudQ, waterQ, dTime*60)
 
-    return (level, rho, depth)
+    return (level, rho, Pc, Qc, Pb, depth)
+
+#%% Utility functions
+def maxdepth():
+    return drill.maxdepth()
 
 #%% Define a stand-alone call for the function
 def main():
@@ -132,16 +137,19 @@ def main():
     print('------------------------------------------------\n')
 
     print('Calling process...')
-    level, rhoP, meas_depth = process(level, rhoP, meas_depth, \
+    level, rhoP, Pc, Qc, Pbit, meas_depth = process(level, rhoP, meas_depth, \
                                       mud_pump_flow, bp_pump_flow, \
                                       choke_valve, \
                                       mudQ, waterQ, \
                                       time_interval*60 )
     
     print('-[Results]--------------------------------------')
-    print('Mud pit level   =', level, 'm')
-    print('Mud density     =', rhoP, 'kg/m3')
-    print('Measured depth  =', meas_depth, 'm')
+    print('Mud pit level           =', level, 'm')
+    print('Mud density             =', rhoP, 'kg/m3')
+    print('Pressure at Choke Valve =', Pc, 'bar')
+    print('Flow Rate through Choke =', Qc, 'm3/min')
+    print('Downhole pressure       =', Pbit, 'bar')
+    print('Measured depth          =', meas_depth, 'm')
     print('------------------------------------------------\n')
     
     return

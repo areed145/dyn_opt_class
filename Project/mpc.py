@@ -49,19 +49,23 @@ LICENSE
 
 import numpy as np
 from gekko import GEKKO
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
-def mpc(chokeVP_m, backQ_m, mudQ_m, water_m, pumpQ_m, \
+def mpc(chokeVP_m, chokeVP_l, chokeVP_h, \
+        backQ_m, backQ_l, backQ_h, \
         level_m, level_l, level_h, \
-        rho_m, rho_l, rho_h, \
         Pc_m, Pc_l, Pc_h, \
+        Pbit_m, Pbit_l, Pbit_h, \
         dTime):
+#def mpc(dTime):
+#        rho_m, rho_l, rho_h, \
     """
     Arguments:
 
         Manipulated Measurements:
         chokeVP_m     - Choke Valve Opening from 0-100 [%]
         backQ_m       - Back-pressure pump flowrate for this interval (m3/min)
+        ---> Later
         mudQ_m        - Mud concentrate makeup (m3/min)
         waterQ_m      - Fresh water makeup (m3/min)
 
@@ -70,8 +74,10 @@ def mpc(chokeVP_m, backQ_m, mudQ_m, water_m, pumpQ_m, \
 
         Dependents:
         level_m, level_l, level_h   - Mud pit level (m)
-        rho_m, rho_l,rho_h          - Mud density in pit (kg/m3)
         Pc_m, Pc_l, Pc_h            - Choke pressure (bar)
+        Pbit_m, etc.                - Downhole pressure (bar)
+        ---> Later
+        rho_m, rho_l,rho_h          - Mud density in pit (kg/m3)
 
         Other:
         dTime       - Length of the interval (seconds)
@@ -79,6 +85,7 @@ def mpc(chokeVP_m, backQ_m, mudQ_m, water_m, pumpQ_m, \
    Returns (MVs):
         chokeVP     - Choke Valve Opening from 0-100 [%]
         backQ       - Back-pressure pump flowrate for this interval (m3/min)
+        ---> Later
         mudQ        - Mud concentrate makeup (m3/min)
         waterQ      - Fresh water makeup (m3/min)
 
@@ -100,14 +107,14 @@ def mpc(chokeVP_m, backQ_m, mudQ_m, water_m, pumpQ_m, \
     # Model Variables
     #y = mpc.Var(value=-1.0)       # general variable
 
-    chokeVP = mpc.MV(value=chokeVP_m)   # MV - Choke valve
-    backQ = mpc.MV(value=backQ_m)       # MV - Back pressure pump flow
-    mudQ = mpc.MV(value=mudQ_m)         # MV - Mud concentrate makeup flow
-    waterQ = mpc.MV(value=waterQ_m)     # MV - Water makeup flow
+    #chokeVP = mpc.MV(value=chokeVP_m)   # MV - Choke valve
+    #backQ = mpc.MV(value=backQ_m)       # MV - Back pressure pump flow
+    #mudQ = mpc.MV(value=mudQ_m)         # MV - Mud concentrate makeup flow
+    #waterQ = mpc.MV(value=waterQ_m)     # MV - Water makeup flow
 
-    level = mpc.CV(value=level_m)       # CV - Mud pit level
-    Pc = mpc.CV(value=Pc_m)             # CV - Pressure at choke
-    rho = mpc.CV(value=rho_m)           # CV - Mud density
+    #level = mpc.CV(value=level_m)       # CV - Mud pit level
+    #Pc = mpc.CV(value=Pc_m)             # CV - Pressure at choke
+    #rho = mpc.CV(value=rho_m)           # CV - Mud density
 
     # Objective
     #term = m.Param(value=np.array([int(t>=tmax) for t in m.time]))
@@ -127,12 +134,12 @@ def mpc(chokeVP_m, backQ_m, mudQ_m, water_m, pumpQ_m, \
     #u.DMAX   = 100.0    # maximum move
 
     # CV tuning parameters
-    level.STATUS = 1        # turn CV ON
-    level.SP   = 0.0        # setpoint for L2 norm
-    level.SPLO = level_l    # low setpoint for L1 norm
-    level.SPHI = level_h    # high setpoint for L1 norm
-    level.TR_INIT = 1       # initial equal to the current value on coldstart
-    level.TAU     = 2.0     # speed of SP response
+    #level.STATUS = 1        # turn CV ON
+    #level.SP   = 0.0        # setpoint for L2 norm
+    #level.SPLO = level_l    # low setpoint for L1 norm
+    #level.SPHI = level_h    # high setpoint for L1 norm
+    #level.TR_INIT = 1       # initial equal to the current value on coldstart
+    #level.TAU     = 2.0     # speed of SP response
 
     # Solver options
     mpc.options.IMODE = 6     # Dynamic Optimization (Control)
@@ -144,16 +151,17 @@ def mpc(chokeVP_m, backQ_m, mudQ_m, water_m, pumpQ_m, \
     # Make up the outputs so everything works
     chokeVP = 30.0
     backQ   = 0.4
-    mudQ = 0.0
-    waterQ = 0.0
+    #mudQ = 0.0
+    #waterQ = 0.0
 
-    return (chokeVP, backQ, mudQ, waterQ)
+    return (chokeVP, backQ)  #, mudQ, waterQ)
 
 #%% The main function in this module
 def main ():
 
     global options, args
 
+"""
     #%% Non-model parameters
     rmt = False  # Solve local or remote
     tf = 10.0     # Final time
@@ -223,6 +231,7 @@ def main ():
     plt.ylabel('CV')
     plt.xlabel('time')
     plt.show()
+"""
 
 #%% Define a standard test suite for this function
 def test ():

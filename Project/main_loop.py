@@ -52,12 +52,77 @@ import sys, os, traceback, argparse
 import time
 import re
 #from pexpect import run, spawn
+import process as p
+from mhe import mhe
+from mpc import mpc
+
+
 
 def main ():
 
     global options, args
     # TODO: Do something more interesting here...
     print ('Welcome to the MPD Project main loop!')
+    
+    
+    max_depth = p.maxdepth()
+    max_depth = 100
+    
+    # Initialize things
+    time_interval = 5.0
+    meas_depth = 0.0
+    pit_level = 10
+    mud_pump_flow = 1.0
+    bp_pump_flow = 0.2
+    choke_valve = 20.0
+    mudQ = 0.0
+    waterQ = 0.0
+    rhoP = 1240.0
+    
+    drilling = True
+    
+    # main loop
+    while drilling:
+        # Call the process
+        pit_level, rhoP, Pc, Qc, Pdh, meas_depth = p.process(pit_level, rhoP, \
+                                  meas_depth, \
+                                  mud_pump_flow, bp_pump_flow, \
+                                  choke_valve, \
+                                  mudQ, waterQ, \
+                                  time_interval*60 )
+        if meas_depth > max_depth:
+            drilling = False
+
+        print('-[Process]--------------------------------------')
+        print ('Depth =', meas_depth, 'm')
+        print('Mud pit level           =', pit_level, 'm')
+        print('Mud density             =', rhoP, 'kg/m3')
+        print('Pressure at Choke Valve =', Pc, 'bar')
+        print('Flow Rate through Choke =', Qc, 'm3/min')
+        print('Downhole Pressure       =', Pdh, 'bar')
+        print('Measured depth          =', meas_depth, 'm')
+
+        # Call the MHE
+        pitA = mhe(time_interval*60)
+        print('-[MHE]------------------------------------------')
+        print ('Pit area               =', pitA, 'm2')    
+        
+        # Call the MPC
+        #choke_valve, bp_pump_flow, mudQ, waterQ = mpc( \
+        choke_valve, bp_pump_flow = mpc(choke_valve, 1.0, 99.0, \
+                                        bp_pump_flow, 0.0, 4.0, \
+                                        pit_level, 9.0, 11.0, \
+                                        Pc, 0.0, 5.0, \
+                                        Pdh, 100.0, 1000.0, \
+                                        time_interval*60)
+
+        print('-[MPC]------------------------------------------')
+        print ('Choke Valve            =', choke_valve, '%')    
+        print('Back-pressure Pump Flow =', bp_pump_flow, 'm3/min')
+    
+    
+        # Go back to the top
+        print('------------------------------------------------\n')
 
 def test ():
 

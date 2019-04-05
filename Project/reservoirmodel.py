@@ -39,7 +39,10 @@ def res_data():
     return (MD, TVD, ROP, K, PF, EL)
 
 def reservoir_mindepth():
-    return res_data_xls_MD[0]
+    return res_data_xls_MD[0] * 0.3048
+
+def reservoir_maxdepth():
+    return res_data_xls_MD[-1] * 0.3048
 
 def reservoir_flow(pressure, area, depth):
     """
@@ -185,7 +188,8 @@ def main():
 
 #%% This is only run whne script is executed as a standalone program
 if __name__ == '__main__':
-    import sys, os, traceback, argparse
+    #import sys
+    import os, traceback, argparse
     import time
     #import re
     #from pexpect import run, spawn
