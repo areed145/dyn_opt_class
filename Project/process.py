@@ -79,7 +79,7 @@ def process (level_start, rho_start, depth_start, pumpQ, backQ, chokeVP, \
     global options, args
 
     #print('\tCalling drillstring()...')
-    Pp, Pc, Qb, Pb, Qc, Qr, depth = drill.drillstring(pumpQ, backQ, \
+    Pp, Pc, Qb, Pb, Qc, Qr, depth = drill.drillstring(pumpQ, backQ, rho_start, \
                                          chokeVP, depth_start, dTime*60 )
 
     #print('\t-[Drilling Results]-----------------------------')
@@ -107,10 +107,11 @@ def maxdepth():
 #%% Define a stand-alone call for the function
 def main():
     level = 10.0
-    rhoP = 1240
+    rhoP = 900
     #meas_depth = 6000.0*.3048  # Normal
     #meas_depth = 8000.0*.3048  # loss of circ
-    meas_depth = 15400.0*.3048  # Kick
+    #meas_depth = 15100.0*.3048  # Normal
+    meas_depth = 15300.0*.3048  # Kick
 
     mud_pump_flow = 1.0 #2004.0*(1e-3/60)
     bp_pump_flow = 0.2 #804.0*(1e-3/60)

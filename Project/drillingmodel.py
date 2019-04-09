@@ -10,16 +10,17 @@ import math
 import numpy as np
 import reservoirmodel as rm
 from gekko import GEKKO
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 #%% Drillstring Model
-def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
+def drillstring(pumpQ, backQ, rhoM, chokeVP, depth, dTime):
     """
     Arguments:
         pumpQ   - Mud pump flowrate for this interval (m3/min)
         backQ   - Back-pressure pump flowrate for this interval (m3/min)
         chokeVP - Choke Valve Opening from 0-100 [%]
+        rhoM    - Mud density [kg/m3]
         depth   - Measured depth at the start of this interval (m)
         dTime   - Length of the interval (seconds)
     Returns:
@@ -75,7 +76,7 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
                             = rm.reservoir(MD_init[s])
 
     mu = 0.042  # kinematic viscosiry (kg/m*s)
-    PI_init = K_init * 10000 * 1e5 / (math.log(10.0/r_ci)*mu)
+    PI_init = K_init * 1e3 * 1e5 / (math.log(10.0/r_ci)*mu)
 
         
     MD  = d.Param(MD_init)      # Measured depth (m)
@@ -93,10 +94,10 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     betaA  = d.Param(50000)    
     Fd     = d.Param(80)         # Friction Factor in the drill string [bar*s^2/m^6]
     Fa     = d.Param(330)        # Friction Factor in the Annulus [bar*s^2/m^6]
-    rhoD   = d.Param(1240)       # Mud Density in the Drill String [kg/m^3]        
-    #rhoD   = d.Param(900)       # Mud Density in the Drill String [kg/m^3]        
-    rhoA   = d.FV(1290,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
-    #rhoA   = d.FV(950,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
+    #rhoD   = d.Param(1240)       # Mud Density in the Drill String [kg/m^3]        
+    rhoD   = d.Param(rhoM)       # Mud Density in the Drill String [kg/m^3]        
+    #rhoA   = d.FV(1290,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
+    rhoA   = d.FV(rhoM,lb=rhoD)  # Mud Density in the Drill String Annulus [kg/m^3]    
     
 
     # Variables
@@ -184,7 +185,40 @@ def drillstring(pumpQ, backQ, chokeVP, depth, dTime):
     
     # Print solution
     #print("PI =",PI.value[-1])
-   
+
+    plt.figure(1)
+    
+    plt.subplot(5,1,1)
+    plt.plot(d.time[2:],Qpump[2:],'b-',label='Mud Pump Flow')
+    plt.plot(d.time[2:],Qbit[2:],'g:',label='Bit Mud Flow')
+    plt.plot(d.time[2:],Qchoke[2:],'r--',label='Choke Mud Flow')
+    plt.ylabel(r'Flow ($m^3/min$)')
+    plt.legend(loc='best')
+    
+    plt.subplot(5,1,2)
+    plt.plot(d.time[2:],Zc[2:],'k-',label='Choke Opening (%)')
+    plt.ylabel('Choke (%)')
+    plt.legend(loc='best')
+    
+    plt.subplot(5,1,3)
+    plt.plot(d.time[2:],Pbit[2:],'r-',label='Bit Pressure (bar)')
+    plt.ylabel('Press (bar)')
+    plt.legend(loc='best')
+    
+    plt.subplot(5,1,4)
+    plt.plot(d.time[2:],Pp[2:],'r:',label='Pump Pressure (bar)')
+    plt.plot(d.time[2:],Pc[2:],'b--',label='Choke Pressure (bar)')
+    plt.ylabel('Press (bar)')
+    plt.legend(loc='best')
+
+
+    plt.subplot(5,1,5)
+    plt.plot(d.time[2:],Qres[2:],'k-',label='Reservoir Flow (m3/min)')
+    plt.ylabel('Qres (m3/min)')
+    plt.legend(loc='best')
+    
+    plt.xlabel('Time (sec)')
+    plt.show()
 
     return (Pp.VALUE[-1], \
             Pc.VALUE[-1], \
@@ -207,19 +241,21 @@ def test():
 def main():
     mud_pump_flow = 1.0 #2004.0*(1e-3/60)
     bp_pump_flow = 0.2 #804.0*(1e-3/60)
+    mud_density = 900
     choke_valve = 50.0
-    meas_depth = 6000.0*.3048  # Normal
+    #meas_depth = 6000.0*.3048  # Normal
     #meas_depth = 8000.0*.3048  # loss of circ
-    #meas_depth = 15400.0*.3048  # Kick
+    meas_depth = 15199.5*.3048  # Kick
     time_interval = 5.0
 
     print('-[Inputs]---------------------------------------')
     print('Flow Rate through Mud Pump [m^3/min] =', mud_pump_flow)
     print('Flow Rate through Back-pressure Pump [m^3/min] =', bp_pump_flow)
+    print('Mud density [kg/m3] =', mud_density)
     print('Choke Valve Position [%] =', choke_valve)
     print('------------------------------------------------')
     print('Time interval [minutes] =', time_interval)
-    print('Initial measured depth [m] =', meas_depth)
+    print('Initial measured depth =', meas_depth,'m',meas_depth/0.3048,'ft')
     print('------------------------------------------------\n')
     
     print('Calling reservoir.reservoir()...')
@@ -235,7 +271,7 @@ def main():
     
     print('Calling drillstring()...')
     Pp, Pc, Qb, Pb, Qc, Qr, md = drillstring(mud_pump_flow, bp_pump_flow, \
-                                         choke_valve, meas_depth, \
+                                         mud_density, choke_valve, meas_depth, \
                                          time_interval*60 )
     
     print('-[Drilling Results]--------------------------------------')
@@ -246,7 +282,7 @@ def main():
     print('Flow Rate through Choke [m^3/min] =', Qc)
     print('Flow Rate from reservoir [m^3/min] =', Qr)
     print('Flow Rate from reservoir [bbl/h] =', Qr*60/0.159)
-    print('Measured Depth [m] =', md)
+    print('Measured depth =', md,'m',md/0.3048,'ft')
     print()
     print("delta Pressure [bar ... psi]", Pb-PF, "...", (Pb-PF)*14.7)
     print()
