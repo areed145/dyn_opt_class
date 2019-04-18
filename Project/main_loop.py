@@ -55,8 +55,7 @@ import re
 import process as p
 from mhe import mhe
 from mpc import mpc
-
-
+import matplotlib.pyplot as plt
 
 def main ():
 
@@ -66,7 +65,7 @@ def main ():
     
     
     max_depth = p.maxdepth()
-    max_depth = 100
+    max_depth = 1000
     
     # Initialize things
     time_interval = 5.0
@@ -78,8 +77,36 @@ def main ():
     mudQ = 0.0
     waterQ = 0.0
     rhoP = 1240.0
+    time_elapsed = 0
+    
+    Pc = 0.0
+    Qc = 0.0
+    Pdh = 0.0
+    pitA = 0.0
     
     drilling = True
+    
+    pit_level_ = []
+    rhoP_ = []
+    Pc_ = []
+    Qc_ = []
+    Pdh_ = []
+    meas_depth_ = []
+    pitA_ = []
+    choke_valve_ = []
+    bp_pump_flow_ = []
+    time_elapsed_ = []
+    
+    pit_level_.append(pit_level)
+    rhoP_.append(rhoP)
+    Pc_.append(Pc)
+    Qc_.append(Qc)
+    Pdh_.append(Pdh)
+    meas_depth_.append(meas_depth) 
+    pitA_.append(pitA)
+    choke_valve_.append(choke_valve) 
+    bp_pump_flow_.append(bp_pump_flow)
+    time_elapsed_.append(time_elapsed)
     
     # main loop
     while drilling:
@@ -123,6 +150,54 @@ def main ():
     
         # Go back to the top
         print('------------------------------------------------\n')
+        
+        pit_level_.append(pit_level)
+        rhoP_.append(rhoP)
+        Pc_.append(Pc)
+        Qc_.append(Qc)
+        Pdh_.append(Pdh)
+        meas_depth_.append(meas_depth) 
+        pitA_.append(pitA)
+        choke_valve_.append(choke_valve) 
+        bp_pump_flow_.append(bp_pump_flow)
+        time_elapsed += time_interval*60
+        time_elapsed_.append(time_elapsed)
+        
+    plt.figure(1)
+    
+    plt.subplot(6,1,1)
+    plt.plot(time_elapsed_,Qc_,'b-',label='Choke Flow')
+    plt.ylabel(r'Flow ($m^3/min$)')
+    plt.legend(loc='best')
+    
+    plt.subplot(6,1,2)
+    plt.plot(time_elapsed_,choke_valve_,'k-',label='Choke Opening (%)')
+    plt.ylabel('Choke (%)')
+    plt.legend(loc='best')
+    
+    plt.subplot(6,1,3)
+    plt.plot(time_elapsed_,Pdh_,'r-',label='Bit Pressure (bar)')
+    plt.ylabel('Press (bar)')
+    plt.legend(loc='best')
+    
+    plt.subplot(6,1,4)
+    plt.plot(time_elapsed_,bp_pump_flow_,'r:',label='BP pump flow')
+    plt.ylabel('Press (bar)')
+    plt.legend(loc='best')
+
+
+    plt.subplot(6,1,5)
+    plt.plot(time_elapsed_,pit_level_,'k-',label='Pit Level (m)')
+    plt.ylabel('Qres (m3/min)')
+    plt.legend(loc='best')
+    
+    plt.subplot(6,1,6)
+    plt.plot(time_elapsed_,meas_depth_,'k-',label='Measured Depth (m)')
+    plt.ylabel('Measured Depth (m)')
+    plt.legend(loc='best')
+    
+    plt.xlabel('Time (sec)')
+    plt.show()
 
 def test ():
 

@@ -68,7 +68,7 @@ def mudpit(level_st, rho_st, rho_in, inflow, outflow, mud, water, dTime):
         rho      - Mud density in pit at end (kg/m3)
     """
     #%% Non-model parameters
-    rmt = False  # Solve local or remote
+    rmt = True  # Solve local or remote
 
     #%% Specify model
     m = GEKKO(remote=rmt)

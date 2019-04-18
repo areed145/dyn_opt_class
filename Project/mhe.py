@@ -61,7 +61,7 @@ def mhe(dTime):
     """
 
     #%% Non-model parameters
-    rmt = False  # Solve local or remote
+    rmt = True  # Solve local or remote
     npts = 100    # time steps
 
     #%% Specify model

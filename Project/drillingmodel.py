@@ -31,7 +31,7 @@ def drillstring(pumpQ, backQ, rhoM, chokeVP, depth, dTime):
         Qchoke - Flow through the choke (m3/min)
         MD     - Measured depth at the end of the interval (m)
     """
-    rmt = False  # Solve local or remote
+    rmt = True  # Solve local or remote
 
     d = GEKKO(remote=rmt)
 
@@ -186,39 +186,44 @@ def drillstring(pumpQ, backQ, rhoM, chokeVP, depth, dTime):
     # Print solution
     #print("PI =",PI.value[-1])
 
-    plt.figure(1)
+    # plt.figure(1)
     
-    plt.subplot(5,1,1)
-    plt.plot(d.time[2:],Qpump[2:],'b-',label='Mud Pump Flow')
-    plt.plot(d.time[2:],Qbit[2:],'g:',label='Bit Mud Flow')
-    plt.plot(d.time[2:],Qchoke[2:],'r--',label='Choke Mud Flow')
-    plt.ylabel(r'Flow ($m^3/min$)')
-    plt.legend(loc='best')
+    # plt.subplot(6,1,1)
+    # plt.plot(d.time[2:],Qpump[2:],'b-',label='Mud Pump Flow')
+    # plt.plot(d.time[2:],Qbit[2:],'g:',label='Bit Mud Flow')
+    # plt.plot(d.time[2:],Qchoke[2:],'r--',label='Choke Mud Flow')
+    # plt.ylabel(r'Flow ($m^3/min$)')
+    # plt.legend(loc='best')
     
-    plt.subplot(5,1,2)
-    plt.plot(d.time[2:],Zc[2:],'k-',label='Choke Opening (%)')
-    plt.ylabel('Choke (%)')
-    plt.legend(loc='best')
+    # plt.subplot(6,1,2)
+    # plt.plot(d.time[2:],Zc[2:],'k-',label='Choke Opening (%)')
+    # plt.ylabel('Choke (%)')
+    # plt.legend(loc='best')
     
-    plt.subplot(5,1,3)
-    plt.plot(d.time[2:],Pbit[2:],'r-',label='Bit Pressure (bar)')
-    plt.ylabel('Press (bar)')
-    plt.legend(loc='best')
+    # plt.subplot(6,1,3)
+    # plt.plot(d.time[2:],Pbit[2:],'r-',label='Bit Pressure (bar)')
+    # plt.ylabel('Press (bar)')
+    # plt.legend(loc='best')
     
-    plt.subplot(5,1,4)
-    plt.plot(d.time[2:],Pp[2:],'r:',label='Pump Pressure (bar)')
-    plt.plot(d.time[2:],Pc[2:],'b--',label='Choke Pressure (bar)')
-    plt.ylabel('Press (bar)')
-    plt.legend(loc='best')
+    # plt.subplot(6,1,4)
+    # plt.plot(d.time[2:],Pp[2:],'r:',label='Pump Pressure (bar)')
+    # plt.plot(d.time[2:],Pc[2:],'b--',label='Choke Pressure (bar)')
+    # plt.ylabel('Press (bar)')
+    # plt.legend(loc='best')
 
 
-    plt.subplot(5,1,5)
-    plt.plot(d.time[2:],Qres[2:],'k-',label='Reservoir Flow (m3/min)')
-    plt.ylabel('Qres (m3/min)')
-    plt.legend(loc='best')
+    # plt.subplot(6,1,5)
+    # plt.plot(d.time[2:],Qres[2:],'k-',label='Reservoir Flow (m3/min)')
+    # plt.ylabel('Qres (m3/min)')
+    # plt.legend(loc='best')
     
-    plt.xlabel('Time (sec)')
-    plt.show()
+    # plt.subplot(6,1,6)
+    # plt.plot(d.time[2:],MD[2:],'k-',label='Measured Depth (m)')
+    # plt.ylabel('Measured Depth (m)')
+    # plt.legend(loc='best')
+    
+    # plt.xlabel('Time (sec)')
+    # plt.show()
 
     return (Pp.VALUE[-1], \
             Pc.VALUE[-1], \

@@ -92,7 +92,7 @@ def mpc(chokeVP_m, chokeVP_l, chokeVP_h, \
     """
 
     #%% Non-model parameters
-    rmt = False  # Solve local or remote
+    rmt = True  # Solve local or remote
     npts = 100    # time steps
 
     #%% Specify controller 
