@@ -53,22 +53,81 @@ def get_reservoir(res, md):
         el    - effective length (m)
     '''
     
-    try:
-        res_rel = res[res['MD Measured Depth (m)'] >= md]
-        tvd = res_rel['TVD True Vertical Depth(m)'].values[0]
-        rop = res_rel['ROP (m/sec)'].values[0]
-        Pf = res_rel['Pressure (formation bar)'].values[0]
-        k = res_rel['Permeability_k (m2)'].values[0]
-        el = 1
-    except:
-        tvd = res_rel['TVD True Vertical Depth(m)'].values[-1]
-        rop = res_rel['ROP (m/sec)'].values[-1]
-        Pf = res_rel['Pressure (formation bar)'].values[-1]
-        k = res_rel['Permeability_k (m2)'].values[-1]
-        el = 1
+#    try:
+#        res_rel = res[res['MD Measured Depth (m)'] >= md]
+#        tvd = res_rel['TVD True Vertical Depth(m)'].values[0]
+#        rop = res_rel['ROP (m/sec)'].values[0]
+#        Pf = res_rel['Pressure (formation bar)'].values[0]
+#        k = res_rel['Permeability_k (m2)'].values[0]
+#        el = 1
+#    except:
+#        tvd = res_rel['TVD True Vertical Depth(m)'].values[-1]
+#        rop = res_rel['ROP (m/sec)'].values[-1]
+#        Pf = res_rel['Pressure (formation bar)'].values[-1]
+#        k = res_rel['Permeability_k (m2)'].values[-1]
+#        el = 1
+#        
+#    if md > 1000:
+#        rop = rop * 3 
+#
+    tvd = 0
+    rop = 0
+    Pf = 0
+    k = 0
+    el = 1
+    idx = 1
+    while idx < len(res['MD Measured Depth (m)']) \
+               and md >= res['MD Measured Depth (m)'][idx]:
+        idx += 1
+    
+    rop = res['ROP (m/sec)'][idx]
+    Pf = res['Pressure (formation bar)'][idx]
+    k = res['Permeability_k (m2)'][idx]
+    el = 1
+    
+    num1 = 0
+    num2 = 0
+    md1 = 0
+    md2 = 0
+
+    if (idx+1<len(res['TVD True Vertical Depth(m)'])):
+        num1 = res['TVD True Vertical Depth(m)'][idx]
+        num2 = res['TVD True Vertical Depth(m)'][idx+1]
+        md1 = res['MD Measured Depth (m)'][idx]
+        md2 = res['MD Measured Depth (m)'][idx+1]
+        slope = (num2-num1) / (md2-md1)
+    else:
+        num1 = res['TVD True Vertical Depth(m)'][idx-1]
+        num2 = res['TVD True Vertical Depth(m)'][idx]
+        md1 = res['MD Measured Depth (m)'][idx-1]
+        md2 = res['MD Measured Depth (m)'][idx]
+        slope = (num2-num1) / (md2-md1)
+    tvd =  res['TVD True Vertical Depth(m)'][idx] + \
+            (md-res['MD Measured Depth (m)'][idx]) * slope
         
-    if md > 1000:
-        rop = rop * 3 
+    num1 = 0
+    num2 = 0
+    md1 = 0
+    md2 = 0
+
+    if (idx+1<len(res['Pressure (formation bar)'])):
+        num1 = res['Pressure (formation bar)'][idx]
+        num2 = res['Pressure (formation bar)'][idx+1]
+        md1 = res['MD Measured Depth (m)'][idx]
+        md2 = res['MD Measured Depth (m)'][idx+1]
+        slope = (num2-num1) / (md2-md1)
+    else:
+        num1 = res['Pressure (formation bar)'][idx-1]
+        num2 = res['Pressure (formation bar)'][idx]
+        md1 = res['MD Measured Depth (m)'][idx-1]
+        md2 = res['MD Measured Depth (m)'][idx]
+        slope = (num2-num1) / (md2-md1)
+    if (num2-num1 < 50):
+        Pf =  res['Pressure (formation bar)'][idx] + \
+            (md-res['MD Measured Depth (m)'][idx]) * slope
+    else:
+        Pf = res['Pressure (formation bar)'][idx]
+
 
     return tvd, rop, Pf, k, el
 
@@ -232,7 +291,7 @@ def drillstring(md, tvd, rop, Pf, k, el, PIh, Qmp, Qbp, rhoP, cv, tdelta, st, rm
     #d.Equation(MD.dt() == ROP )
 
     # Options
-    d.options.solver = 3
+    d.options.solver = 1
     d.options.imode = 5                       # dynamic simulation
     d.solve(disp=False)
 
@@ -265,7 +324,7 @@ def mudpit(level_st, rho_st, rho_in, inflow, outflow, mud, water, dTime, st, rmt
     m.time = np.linspace(0, dTime, nt)
 
     # Model Constants and Parameters
-    rhoM = m.Const(value=900.0)              # makeup mud density (kg/m3)
+    rhoM = m.Const(value=960.0)              # makeup mud density (kg/m3)
     rhoW = m.Const(value=1000.0)              # water density (kg/m3)
     #pitV = m.Const(value=10.0)                # Mud pit volume (m3)
     pitA = m.Const(value=5.0)                 # Mud pit area (m2)
@@ -459,26 +518,44 @@ def mpc(cv_m, cv_l, cv_h,
     # return cv.VALUE[-1], Qbp.VALUE[-1], Qmud.VALUE[-1], Qwater.VALUE[-1]
     
     if hpit_m < hpit_l:
-        cv_new = min(cv_m + 10, 100)
+        cv_new = min(cv_m + 1, 100)
     elif hpit_m > hpit_h:
-        cv_new = max(cv_m - 10, 0)
+        cv_new = max(cv_m - 1, 5)
     else:
         cv_new = cv_m
+
+    if (cv_m > 8):
+        cv_gain = -0.005
+    else:
+        cv_gain = -0.001
         
-    if cv_new < 20:
-        Qbp_new = min(Qbp_m + 1, 10)
-    elif cv_new < 80:
-        Qbp_new = max(Qbp_m - 1, 0)
+    cv_new = cv_m + cv_gain * (hpit_m - (hpit_l+hpit_h)/2)
+    cv_new = min(max(cv_new, 1.0), 100.0)
+        
+    if cv_new < 10:
+        Qbp_new = min(Qbp_m + 0.1, 10)
+    elif cv_new > 50:
+        Qbp_new = max(Qbp_m - 0.1, 0)
     else:
         Qbp_new = Qbp_m
+    
+    bp_gain = 0.01
+    if cv_new < 7:
+        Qbp_new = Qbp_m + bp_gain * (7 - cv_new)
+    elif cv_new > 90:
+        Qbp_new = Qbp_m + bp_gain * (cv_new - 90)
+    else:
+        Qbp_new = Qbp_m
+
+    Qbp_new = min(max(Qbp_new, 0.0), 10.0)
     
     return cv_new, Qbp_new, 0.0, 0.0 
 
 # Initialize things
 Dmin = 2000.0
 Dmax = 4000.0                               # m
-tdelta = 60.0 * 60.0 * 0.1                      # seconds
-st = 180.0                                    # seconds
+tdelta = 60.0                               # seconds
+st = 60.0                                   # seconds
 
 tdelta_ = np.array([tdelta])
 st_ = np.array([st])
@@ -494,8 +571,8 @@ PIh_ = np.array([0.0])
 mu = 0.042                                    # kinematic viscosity (kg/m*s)
 
 Qmp_ = np.array([2.0])
-Qbp_ = np.array([0.4])
-rhoP_ = np.array([900.0])
+Qbp_ = np.array([0.0])
+rhoP_ = np.array([960.0])
 cv_ = np.array([20.0])
 Pmp_ = np.array([0.0])
 Pchoke_ = np.array([0.0])
@@ -504,7 +581,7 @@ Qres_ = np.array([0.0])
 Pdh_ = np.array([0.0])
 
 hpit_ = np.array([10])
-rhoC_ = np.array([900.0])
+rhoC_ = np.array([960.0])
 Qchoke_ = np.array([0.0])
 Qmud_ = np.array([0.0])
 Qwater_ = np.array([0.0])
@@ -514,7 +591,7 @@ Apit_ = np.array([0.0])
 res = load_reservoir()
 
 drilling = True
-rmt = True
+rmt = False
 
 print('-[Process Initialization]-----------------------')
 print('Time elapsed            =', telapsed_[-1], 's')
@@ -628,13 +705,13 @@ while drilling:
 
 plt.figure(1)
 
-plt.subplot(6,1,1)
+plt.subplot(3,2,1)
 plt.plot(telapsed_ / 3600, md_, 'r-', label='Measured depth')
 plt.plot(telapsed_ / 3600, tvd_, 'b-', label='True vertical depth')
 plt.ylabel('Depth (m)')
 plt.legend(loc='upper left')
 
-plt.subplot(6,1,2)
+plt.subplot(3,2,2)
 plt.plot(telapsed_ / 3600, Pmp_, 'k-', label='Mud pump discharge pressure')
 plt.plot(telapsed_ / 3600, Pdh_, 'r-', label='Drill bit pressure')
 plt.plot(telapsed_ / 3600, Pf_, 'g:', label='Formation pressure')
@@ -642,7 +719,7 @@ plt.plot(telapsed_ / 3600, Pchoke_, 'b-', label='Choke valve inlet pressure')
 plt.ylabel('Pressure (bar)')
 plt.legend(loc='upper left')
 
-plt.subplot(6,1,3)
+plt.subplot(3,2,3)
 plt.plot(telapsed_ / 3600, Qmp_, 'k-', label='Mud pump flowrate')
 plt.plot(telapsed_ / 3600, Qbit_, 'r-', label='Drill bit flowrate')
 plt.plot(telapsed_ / 3600, Qres_, 'g:', label='Formation flowrate')
@@ -651,17 +728,17 @@ plt.plot(telapsed_ / 3600, Qbp_, 'y-', label='Back-pressure pump flowrate')
 plt.ylabel('Flow (m3/min)')
 plt.legend(loc='upper left')
 
-plt.subplot(6,1,4)
+plt.subplot(3,2,4)
 plt.plot(telapsed_ / 3600, rop_, 'k-', label='ROP')
 plt.ylabel('ROP (m/hr)')
 plt.legend(loc='upper left')
 
-plt.subplot(6,1,5)
+plt.subplot(3,2,5)
 plt.plot(telapsed_ / 3600, hpit_, 'k-', label='Pit Level')
 plt.ylabel('Height (m)')
 plt.legend(loc='upper left')
 
-plt.subplot(6,1,6)
+plt.subplot(3,2,6)
 plt.plot(telapsed_ / 3600, cv_, 'b-', label='Choke Position')
 plt.ylabel('%')
 plt.legend(loc='upper left')
